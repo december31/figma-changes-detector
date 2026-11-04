@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Figma Changes Detector</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="logo-badge">
+          <svg width="24" height="24" viewBox="0 0 38 57" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M19 28.5C19 23.2533 23.2533 19 28.5 19C33.7467 19 38 23.2533 38 28.5C38 33.7467 33.7467 38 28.5 38C23.2533 38 19 33.7467 19 28.5Z" fill="#1ABCFE"/>
+            <path d="M0 47.5C0 42.2533 4.25329 38 9.5 38H19V47.5C19 52.7467 14.7467 57 9.5 57C4.25329 57 0 52.7467 0 47.5Z" fill="#0ACF83"/>
+            <path d="M19 0V19H28.5C33.7467 19 38 14.7467 38 9.5C38 4.25329 33.7467 0 28.5 0H19Z" fill="#FF7262"/>
+            <path d="M0 9.5C0 14.7467 4.25329 19 9.5 19H19V0H9.5C4.25329 0 0 4.25329 0 9.5Z" fill="#F24E1E"/>
+            <path d="M0 28.5C0 33.7467 4.25329 38 9.5 38H19V19H9.5C4.25329 19 0 23.2533 0 28.5Z" fill="#A259FF"/>
+          </svg>
+        </div>
+        <div>
+          <h1>Figma Changes Detector</h1>
+          <p class="subtitle">SQLite-backed visual regression tracker for Figma components</p>
+        </div>
+      </div>
+      <div class="header-right">
+        <span id="tokenStatusBadge" class="status-badge checking">Checking token...</span>
+      </div>
+    </header>
+
+    <!-- Main Grid -->
+    <main class="main-grid">
+      <!-- Left Column: Controls & Watchlist -->
+      <section class="panel control-panel">
+        
+        <!-- 1. Auth Section -->
+        <div class="card">
+          <div class="card-header">
+            <span class="step-num">1</span>
+            <h2>Figma Authentication</h2>
+          </div>
+          <div class="form-group">
+            <label for="figmaToken">
+              Personal Access Token
+              <a href="https://www.figma.com/settings" target="_blank" rel="noopener" class="label-link">Get token from Figma &rarr;</a>
+            </label>
+            <div class="input-with-button">
+              <input type="password" id="figmaToken" placeholder="figd_... (or set FIGMA_ACCESS_TOKEN in .env)" autocomplete="off" />
+              <button type="button" id="toggleTokenVisibility" class="btn-icon" title="Toggle visibility">&#128065;</button>
+            </div>
+            <div class="checkbox-row">
+              <label class="custom-checkbox">
+                <input type="checkbox" id="saveTokenCheck" checked />
+                <span>Save token locally in browser</span>
+              </label>
+              <button type="button" id="clearTokenBtn" class="btn-text">Clear</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Component Setup / Fetch Section -->
+        <div class="card">
+          <div class="card-header">
+            <span class="step-num">2</span>
+            <h2>Add / Fetch Component</h2>
+          </div>
+
+          <div class="form-group">
+            <label for="figmaUrl">Paste Figma Link (Auto-fills File &amp; Node)</label>
+            <input type="url" id="figmaUrl" placeholder="https://www.figma.com/design/:file_key/:name?node-id=123-456" />
+          </div>
+
+          <div class="form-group">
+            <label for="compCustomName">Component Label (Optional)</label>
+            <input type="text" id="compCustomName" placeholder="e.g. Primary CTA Button (auto-detected if blank)" />
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col">
+              <label for="fileKey">File Key <span class="required">*</span></label>
+              <input type="text" id="fileKey" placeholder="e.g. AbC123XyZ" />
+            </div>
+            <div class="form-group col">
+              <label for="nodeId">Node ID <span class="required">*</span></label>
+              <input type="text" id="nodeId" placeholder="e.g. 1:2 or 1-2" />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col">
+              <label for="renderFormat">Format</label>
+              <select id="renderFormat">
+                <option value="png" selected>PNG (Pixel Diff Enabled)</option>
+                <option value="svg">SVG (Vector)</option>
+                <option value="jpg">JPG</option>
+              </select>
+            </div>
+            <div class="form-group col">
+              <label for="renderScale">Scale</label>
+              <select id="renderScale">
+                <option value="1">1x</option>
+                <option value="2" selected>2x (Retina)</option>
+                <option value="3">3x</option>
+                <option value="4">4x</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="button-group-row">
+            <button type="button" id="fetchImageBtn" class="btn-primary">
+              <span class="btn-text-content">Fetch &amp; Check Changes Now</span>
+              <span class="btn-spinner hidden"></span>
+            </button>
+            <button type="button" id="addToWatchlistBtn" class="btn-secondary" title="Save component to SQLite watchlist for 1-click checking later">
+              + Save to Watchlist
+            </button>
+          </div>
+
+          <!-- Error / Info Banner -->
+          <div id="errorBanner" class="alert alert-error hidden"></div>
+          <div id="infoBanner" class="alert alert-info hidden"></div>
+        </div>
+
+        <!-- 3. Persistent Watchlist (One-Time Setup, 1-Click Check All) -->
+        <div class="card">
+          <div class="card-header space-between">
+            <div class="header-title-group">
+              <span class="step-num">3</span>
+              <h2>Tracked Components Watchlist</h2>
+            </div>
+            <span id="watchlistCountBadge" class="count-pill">0</span>
+          </div>
+          <p class="section-desc">Saved in SQLite. Click <strong>Check All</strong> anytime to fetch new images into <code>/assets</code> and compare against the previous fetch.</p>
+          
+          <button type="button" id="checkAllComponentsBtn" class="btn-batch">
+            <span class="btn-batch-text">&#9889; Check All Components for Changes</span>
+            <span class="btn-spinner hidden"></span>
+          </button>
+
+          <div id="batchSummaryBanner" class="batch-summary hidden"></div>
+
+          <!-- Batch Run Records (Displays every component fetched, including identical ones) -->
+          <div id="batchResultsContainer" class="batch-results-container hidden">
+            <div class="batch-results-header">
+              <span class="batch-results-title">Latest Batch Run Records</span>
+              <button type="button" id="clearBatchResultsBtn" class="btn-mini" title="Dismiss batch records">&times; Dismiss</button>
+            </div>
+            <div id="batchResultsList" class="batch-results-list"></div>
+          </div>
+
+          <div id="watchlistContainer" class="watchlist-container">
+            <div class="empty-state-sm">No components in watchlist yet. Add components above to check them with one click!</div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- Right Column: Component Display, Auto-Diff & Fetch History -->
+      <section class="panel display-panel">
+        
+        <!-- Live Preview Card -->
+        <div class="card preview-card">
+          <div class="card-header space-between">
+            <div class="preview-header-left">
+              <h2>Component Inspection</h2>
+              <span id="changeStatusPill" class="change-pill hidden">-</span>
+            </div>
+            <div class="preview-controls">
+              <button type="button" id="bgToggleBtn" class="btn-pill" title="Toggle background pattern">
+                Background: <span id="bgPatternLabel">Grid</span>
+              </button>
+              <button type="button" id="zoomModalBtn" class="btn-pill hidden" title="Fullscreen view">
+                &Square; Expand
+              </button>
+            </div>
+          </div>
+
+          <div id="previewContainer" class="preview-container bg-grid">
+            <div id="placeholderState" class="placeholder-state">
+              <div class="placeholder-icon">&#128444;</div>
+              <h3>No component selected</h3>
+              <p>Fetch a component, select one from your <strong>Tracked Watchlist</strong>, or run <strong>Check All Components</strong>.</p>
+            </div>
+
+            <div id="loadingState" class="loading-state hidden">
+              <div class="spinner-large"></div>
+              <h3>Fetching &amp; Comparing...</h3>
+              <p>Downloading render to <code>/assets</code> and comparing against last fetch</p>
+            </div>
+
+            <div id="imageDisplayWrapper" class="image-display-wrapper hidden">
+              <img id="renderedImage" src="" alt="Figma Component Render" />
+            </div>
+          </div>
+
+          <!-- Metadata & Actions Toolbar -->
+          <div id="metadataToolbar" class="metadata-toolbar hidden">
+            <div class="meta-tags">
+              <div class="meta-tag">
+                <span class="meta-label">Component</span>
+                <span id="metaNodeName" class="meta-value">-</span>
+              </div>
+              <div class="meta-tag">
+                <span class="meta-label">Node ID</span>
+                <span id="metaNodeId" class="meta-value font-mono">-</span>
+              </div>
+              <div class="meta-tag">
+                <span class="meta-label">Change vs Last Fetch</span>
+                <span id="metaChangeSummary" class="meta-value">-</span>
+              </div>
+              <div class="meta-tag">
+                <span class="meta-label">Dimensions</span>
+                <span id="metaDimensions" class="meta-value">-</span>
+              </div>
+              <div class="meta-tag">
+                <span class="meta-label">Stored Asset</span>
+                <span id="metaAssetPath" class="meta-value font-mono">-</span>
+              </div>
+              <div class="meta-tag">
+                <span class="meta-label">Fetched At</span>
+                <span id="metaTimestamp" class="meta-value">-</span>
+              </div>
+            </div>
+
+            <div class="action-buttons-row">
+              <button type="button" id="openCompareModalBtn" class="btn-primary" style="flex: initial;">
+                &#x26F6; Inspect &amp; Compare (Full Screen)
+              </button>
+              <button type="button" id="refetchCurrentBtn" class="btn-success">
+                &#8635; Re-Fetch &amp; Compare Now
+              </button>
+              <button type="button" id="editCurrentCompBtn" class="btn-secondary">
+                &#9998; Edit Component
+              </button>
+              <a id="openNewTabBtn" href="#" target="_blank" rel="noopener" class="btn-secondary">
+                &#8599; Open Stored Asset
+              </a>
+              <a id="downloadImageBtn" href="#" download class="btn-secondary">
+                &#11015; Download
+              </a>
+            </div>
+          </div>
+        </div>
+
+      </section>
+    </main>
+  </div>
+
+  <!-- Fullscreen Comparison & Stored Fetch History Modal -->
+  <div id="compareModal" class="compare-fullscreen-modal hidden">
+    <div class="compare-modal-window">
+      <!-- Fullscreen Modal Header -->
+      <header class="compare-modal-header">
+        <div class="compare-header-left">
+          <div class="compare-title-row">
+            <h2>Comparison: Current Fetch vs. Previous Fetch</h2>
+            <span id="compareCompBadge" class="count-pill">-</span>
+            <span id="compareStatusPill" class="change-pill hidden">-</span>
+          </div>
+          <p id="compareSubtitle" class="subtitle">Comparing latest stored snapshot against previous snapshot</p>
+        </div>
+        <div class="compare-header-actions">
+          <div class="compare-mode-switch">
+            <button type="button" class="btn-tab active" data-mode="side-by-side">Side by Side</button>
+            <button type="button" class="btn-tab" data-mode="slider">Split Slider</button>
+          </div>
+          <button type="button" id="closeCompareModalBtn" class="btn-close-fullscreen" title="Close Comparison (Esc)">&times;</button>
+        </div>
+      </header>
+
+      <!-- Fullscreen Modal Body (Split: Comparison View beside Stored Fetch History) -->
+      <div class="compare-modal-body">
+        <!-- Beside Comparison Area (Left) -->
+        <div class="compare-modal-main">
+          <!-- Identical Notice Callout -->
+          <div id="identicalNoticeBanner" class="identical-notice-banner hidden">
+            <span class="identical-icon">&#10004;</span>
+            <div class="identical-notice-text">
+              <strong>Identical Content Verified (0% Diff):</strong>
+              <span id="identicalNoticeDetails">Both renders match with 0% diff (0 changed pixels).</span>
+            </div>
+          </div>
+
+          <!-- Baseline Notice Callout -->
+          <div id="baselineNoticeBanner" class="baseline-notice-banner hidden">
+            <span class="baseline-icon">&#128204;</span>
+            <div class="baseline-notice-text">
+              <strong>Initial Baseline Render:</strong>
+              <span id="baselineNoticeDetails">This is the first snapshot recorded for this component. No previous fetch exists to compare against yet.</span>
+            </div>
+          </div>
+
+          <!-- Empty Notice Callout -->
+          <div id="emptyNoticeBanner" class="alert alert-info hidden">
+            <span>No snapshots recorded for this component yet. Re-fetch or check this component on the main page to create an initial snapshot.</span>
+          </div>
+
+          <!-- 1. Side by Side View -->
+          <div id="sideBySideView" class="diff-container side-by-side">
+            <div class="diff-pane" id="diffPaneA">
+              <div class="diff-pane-header">
+                <span class="badge-base">Previous Fetch (Before)</span>
+                <span id="diffLabelA" class="diff-time">-</span>
+              </div>
+              <div class="diff-image-box bg-grid">
+                <img id="diffImageA" src="" alt="Previous Fetch" />
+                <div id="diffEmptyA" class="diff-empty-placeholder hidden">No previous snapshot</div>
+              </div>
+            </div>
+            <div class="diff-pane" id="diffPaneB">
+              <div class="diff-pane-header">
+                <span class="badge-target">Current Fetch (After)</span>
+                <span id="diffLabelB" class="diff-time">-</span>
+              </div>
+              <div class="diff-image-box bg-grid">
+                <img id="diffImageB" src="" alt="Current Fetch" />
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. Split Slider View -->
+          <div id="sliderView" class="diff-container slider-mode hidden">
+            <div class="slider-comparison-box bg-grid">
+              <img id="sliderImageB" class="slider-img-after" src="" alt="Current (After)" />
+              <div id="sliderImageAWrapper" class="slider-img-before-wrapper">
+                <img id="sliderImageA" class="slider-img-before" src="" alt="Previous (Before)" />
+              </div>
+              <div id="sliderDividerLine" class="slider-divider-line">
+                <div class="slider-divider-knob">&harr;</div>
+              </div>
+              <input type="range" id="diffSlider" min="0" max="100" value="50" class="comparison-slider-handle" />
+            </div>
+            <div class="slider-legend">
+              <span>&larr; Previous Fetch (Before)</span>
+              <span>Current Fetch (After) &rarr;</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stored Fetch History on the Right Side -->
+        <aside id="historyCard" class="compare-modal-sidebar">
+          <div class="sidebar-header">
+            <div>
+              <h3>Stored Fetch History</h3>
+              <p class="history-comp-title">(<span id="historyCompName">-</span>)</p>
+            </div>
+            <span class="history-path-badge">/assets/snapshots</span>
+          </div>
+          <div id="componentHistoryList" class="history-list"></div>
+        </aside>
+      </div>
+    </div>
+  </div>
+
+  <!-- Zoom Fullscreen Modal -->
+  <div id="zoomModal" class="modal hidden">
+    <div class="modal-backdrop" id="modalBackdrop"></div>
+    <div class="modal-content">
+      <button type="button" id="modalCloseBtn" class="modal-close">&times;</button>
+      <img id="modalImage" src="" alt="Expanded Component View" />
+    </div>
+  </div>
+
+  <!-- Edit Component Modal -->
+  <div id="editModal" class="modal hidden">
+    <div class="modal-backdrop" id="editModalBackdrop"></div>
+    <div class="modal-dialog">
+      <div class="modal-dialog-header">
+        <div class="modal-dialog-title">
+          <h2>Edit Tracked Component</h2>
+          <p class="subtitle">Update details in your SQLite watchlist</p>
+        </div>
+        <button type="button" id="editModalCloseBtn" class="modal-dialog-close" title="Close">&times;</button>
+      </div>
+
+      <form id="editComponentForm">
+        <div class="form-group">
+          <label for="editFigmaUrl">Paste Figma Link (Auto-fills File &amp; Node)</label>
+          <input type="url" id="editFigmaUrl" placeholder="https://www.figma.com/design/:file_key/:name?node-id=123-456" />
+        </div>
+
+        <div class="form-group">
+          <label for="editCompName">Component Label <span class="required">*</span></label>
+          <input type="text" id="editCompName" placeholder="e.g. Primary CTA Button" required />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group col">
+            <label for="editFileKey">File Key <span class="required">*</span></label>
+            <input type="text" id="editFileKey" placeholder="e.g. AbC123XyZ" required />
+          </div>
+          <div class="form-group col">
+            <label for="editNodeId">Node ID <span class="required">*</span></label>
+            <input type="text" id="editNodeId" placeholder="e.g. 1:2 or 1-2" required />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group col">
+            <label for="editRenderFormat">Format</label>
+            <select id="editRenderFormat">
+              <option value="png">PNG (Pixel Diff Enabled)</option>
+              <option value="svg">SVG (Vector)</option>
+              <option value="jpg">JPG</option>
+            </select>
+          </div>
+          <div class="form-group col">
+            <label for="editRenderScale">Scale</label>
+            <select id="editRenderScale">
+              <option value="1">1x</option>
+              <option value="2">2x (Retina)</option>
+              <option value="3">3x</option>
+              <option value="4">4x</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="editErrorBanner" class="alert alert-error hidden"></div>
+
+        <div class="modal-dialog-footer">
+          <button type="button" id="cancelEditBtn" class="btn-secondary">Cancel</button>
+          <button type="submit" id="saveEditBtn" class="btn-primary">
+            <span class="btn-text-content">Save Changes</span>
+            <span class="btn-spinner hidden"></span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
