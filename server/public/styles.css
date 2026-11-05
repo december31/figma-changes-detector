@@ -634,6 +634,33 @@ select:focus {
   display: flex;
   align-items: center;
   gap: 0.45rem;
+  min-width: 0;
+}
+
+.batch-result-tag-row {
+  display: flex;
+  align-items: center;
+  margin-top: 1px;
+}
+
+.batch-result-item .change-pill {
+  font-size: 0.62rem;
+  font-weight: 600;
+  padding: 0.12rem 0.45rem;
+  line-height: 1.2;
+  letter-spacing: 0.025em;
+  align-self: flex-start;
+}
+
+.batch-result-item .change-pill .pill-spinner {
+  width: 8px;
+  height: 8px;
+  border-width: 1.2px;
+}
+
+.batch-result-item .change-pill .pill-dot {
+  width: 5px;
+  height: 5px;
 }
 
 .batch-result-name {
@@ -720,6 +747,33 @@ select:focus {
   display: flex;
   align-items: center;
   gap: 0.45rem;
+  min-width: 0;
+}
+
+.watchlist-tag-row {
+  display: flex;
+  align-items: center;
+  margin-top: 1px;
+}
+
+.watchlist-item .change-pill {
+  font-size: 0.62rem;
+  font-weight: 600;
+  padding: 0.12rem 0.45rem;
+  line-height: 1.2;
+  letter-spacing: 0.025em;
+  align-self: flex-start;
+}
+
+.watchlist-item .change-pill .pill-spinner {
+  width: 8px;
+  height: 8px;
+  border-width: 1.2px;
+}
+
+.watchlist-item .change-pill .pill-dot {
+  width: 5px;
+  height: 5px;
 }
 
 .watchlist-name {

@@ -116,6 +116,8 @@ export const WatchlistCard: React.FC<WatchlistCardProps> = ({
                           <span className="batch-result-name">
                             {resItem.name || `Component #${resItem.componentId}`}
                           </span>
+                        </div>
+                        <div className="batch-result-tag-row">
                           <span className="change-pill changed">Error</span>
                         </div>
                         <span className="batch-result-meta">
@@ -169,6 +171,8 @@ export const WatchlistCard: React.FC<WatchlistCardProps> = ({
                         <span className="batch-result-name" title={comp.name}>
                           {comp.name}
                         </span>
+                      </div>
+                      <div className="batch-result-tag-row">
                         <span className={`change-pill ${statusMeta.cls}`}>
                           {statusMeta.text}
                         </span>

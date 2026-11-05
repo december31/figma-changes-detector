@@ -236,6 +236,8 @@ export function renderWatchlist() {
       <div class="watchlist-info">
         <div class="watchlist-title-row">
           <span class="watchlist-name" title="${comp.name}">${comp.name}</span>
+        </div>
+        <div class="watchlist-tag-row">
           ${pillHtml}
         </div>
         <span class="watchlist-meta">Node <code>${comp.node_id}</code> &bull; ${comp.totalFetches} fetch(es) &bull; ${lastFetchedStr}</span>
@@ -505,6 +507,8 @@ export function renderBatchResults(results) {
           <div class="batch-result-info">
             <div class="batch-result-title-row">
               <span class="batch-result-name">${resItem.name || `Component #${resItem.componentId}`}</span>
+            </div>
+            <div class="batch-result-tag-row">
               <span class="change-pill changed">Error</span>
             </div>
             <span class="batch-result-meta">${resItem.error || 'Fetch failed'}</span>
@@ -534,6 +538,8 @@ export function renderBatchResults(results) {
         <div class="batch-result-info">
           <div class="batch-result-title-row">
             <span class="batch-result-name" title="${comp.name}">${comp.name}</span>
+          </div>
+          <div class="batch-result-tag-row">
             <span class="change-pill ${statusMeta.cls}">${statusMeta.text}</span>
           </div>
           <span class="batch-result-meta">Node <code>${comp.node_id}</code> &bull; ${detailText}</span>

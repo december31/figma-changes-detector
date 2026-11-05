@@ -79,6 +79,8 @@ export const ComponentItem: React.FC<ComponentItemProps> = ({
           <span className="watchlist-name" title={component.name}>
             {component.name}
           </span>
+        </div>
+        <div className="watchlist-tag-row">
           {renderStatusPill()}
         </div>
         <span className="watchlist-meta">
