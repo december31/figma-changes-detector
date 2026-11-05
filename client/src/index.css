@@ -730,6 +730,25 @@ input[readonly]:focus,
   margin: 0;
 }
 
+.folder-create-input-group,
+.folder-create-section .input-with-button {
+  display: flex;
+  gap: 0.6rem;
+  align-items: stretch;
+}
+
+.folder-create-input-group input,
+.folder-create-section .input-with-button input {
+  flex: 1;
+  padding-right: 0.8rem;
+}
+
+.folder-create-input-group button,
+.folder-create-section .input-with-button button {
+  white-space: nowrap;
+  padding: 0.5rem 1.1rem;
+}
+
 .folder-path-preview {
   font-size: 0.74rem;
   color: var(--text-muted);

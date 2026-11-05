@@ -375,7 +375,7 @@ export const FolderPickerModal: React.FC<FolderPickerModalProps> = ({
 
               <div className="form-group">
                 <label htmlFor="newFolderInput">New Folder Name</label>
-                <div className="input-with-button">
+                <div className="folder-create-input-group">
                   <input
                     type="text"
                     id="newFolderInput"
