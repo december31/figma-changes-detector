@@ -7,6 +7,7 @@ interface ComponentItemProps {
   component: Component;
   isActive: boolean;
   transientStatus?: TransientStatus;
+  depth?: number;
   onSelect: (comp: Component) => void;
   onInspect: (comp: Component) => void;
   onFetch: (comp: Component) => void;
@@ -18,6 +19,7 @@ export const ComponentItem: React.FC<ComponentItemProps> = ({
   component,
   isActive,
   transientStatus,
+  depth,
   onSelect,
   onInspect,
   onFetch,
@@ -51,6 +53,7 @@ export const ComponentItem: React.FC<ComponentItemProps> = ({
     <div
       className={`watchlist-item ${isActive ? 'active' : ''}`}
       data-component-id={component.id}
+      style={depth ? { paddingLeft: `${Math.max(depth * 16 + 10, 10)}px` } : undefined}
       onClick={() => onSelect(component)}
     >
       {component.latestFetch ? (

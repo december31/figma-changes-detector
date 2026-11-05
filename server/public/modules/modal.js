@@ -19,6 +19,7 @@ export function initEditModal({ onSave }) {
   const editNodeId = document.getElementById('editNodeId');
   const editErrorBanner = document.getElementById('editErrorBanner');
   const editCompName = document.getElementById('editCompName');
+  const editFolderPath = document.getElementById('editFolderPath');
   const editRenderFormat = document.getElementById('editRenderFormat');
   const editRenderScale = document.getElementById('editRenderScale');
   const saveEditBtn = document.getElementById('saveEditBtn');
@@ -49,6 +50,7 @@ export function initEditModal({ onSave }) {
       if (!currentEditingId) return;
 
       const name = editCompName.value.trim();
+      const folderPath = editFolderPath ? editFolderPath.value.trim() : '';
       const fileKey = editFileKey.value.trim();
       const nodeId = editNodeId.value.trim();
       const format = editRenderFormat.value;
@@ -82,7 +84,7 @@ export function initEditModal({ onSave }) {
         const res = await fetch(`/api/components/${currentEditingId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, fileKey, nodeId, format, scale, figmaUrl })
+          body: JSON.stringify({ name, fileKey, nodeId, format, scale, figmaUrl, folderPath })
         });
         const data = await res.json();
         if (!res.ok || !data.success) {
@@ -128,6 +130,7 @@ export function openEditModal(comp) {
   const editModal = document.getElementById('editModal');
   const editFigmaUrl = document.getElementById('editFigmaUrl');
   const editCompName = document.getElementById('editCompName');
+  const editFolderPath = document.getElementById('editFolderPath');
   const editFileKey = document.getElementById('editFileKey');
   const editNodeId = document.getElementById('editNodeId');
   const editRenderFormat = document.getElementById('editRenderFormat');
@@ -136,6 +139,7 @@ export function openEditModal(comp) {
 
   if (editFigmaUrl) editFigmaUrl.value = comp.figma_url || '';
   if (editCompName) editCompName.value = comp.name || '';
+  if (editFolderPath) editFolderPath.value = comp.folder_path || '';
   if (editFileKey) editFileKey.value = comp.file_key || '';
   if (editNodeId) editNodeId.value = comp.node_id || '';
   if (editRenderFormat) editRenderFormat.value = comp.format || 'png';

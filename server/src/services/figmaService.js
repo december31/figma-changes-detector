@@ -93,7 +93,7 @@ async function fetchFigmaNodeMetadata({ token, fileKey, nodeId, customName = '' 
  * 5. Run diff comparison against previous fetch
  * 6. Save fetch record in repository
  */
-async function executeComponentFetch({ token, fileKey, nodeId, format = 'png', scale = 2, customName = '', figmaUrl = '' }) {
+async function executeComponentFetch({ token, fileKey, nodeId, format = 'png', scale = 2, customName = '', figmaUrl = '', folderPath = '' }) {
   const cleanFileKey = fileKey.trim();
   const cleanNodeId = normalizeNodeId(nodeId);
   const validFormat = ['png', 'jpg', 'svg', 'pdf'].includes(String(format).toLowerCase())
@@ -127,7 +127,8 @@ async function executeComponentFetch({ token, fileKey, nodeId, format = 'png', s
     nodeType: nodeMetadata.nodeType,
     format: validFormat,
     scale: validScale,
-    figmaUrl
+    figmaUrl,
+    folderPath
   });
 
   // 4. Retrieve previous fetch before storing current

@@ -65,6 +65,7 @@ export const App: React.FC = () => {
 
   // --- Watchlist & Active Inspection State ---
   const [components, setComponents] = useState<Component[]>([]);
+  const [folders, setFolders] = useState<string[]>([]);
   const [activeComponentId, setActiveComponentId] = useState<number | null>(null);
   const [activeFetch, setActiveFetch] = useState<FetchRecord | null>(null);
   const [transientStatuses, setTransientStatuses] = useState<Map<number, TransientStatus>>(
@@ -81,6 +82,7 @@ export const App: React.FC = () => {
     name?: string;
     format?: string;
     scale?: number;
+    folderPath?: string;
   }>({});
 
   // --- Batch Run State ---
@@ -146,8 +148,12 @@ export const App: React.FC = () => {
   // --- Initial Config & Watchlist Load ---
   const loadComponents = useCallback(async (selectId?: number | null) => {
     try {
-      const list = await api.getComponents();
+      const [list, folderList] = await Promise.all([
+        api.getComponents(),
+        api.getFolders()
+      ]);
       setComponents(list);
+      setFolders(folderList);
 
       if (selectId) {
         const target = list.find((c) => c.id === selectId);
@@ -159,7 +165,8 @@ export const App: React.FC = () => {
             nodeId: target.node_id,
             name: target.name,
             format: target.format,
-            scale: target.scale
+            scale: target.scale,
+            folderPath: target.folder_path || ''
           });
         }
       } else if (list.length > 0) {
@@ -173,7 +180,8 @@ export const App: React.FC = () => {
               nodeId: firstWithFetch.node_id,
               name: firstWithFetch.name,
               format: firstWithFetch.format,
-              scale: firstWithFetch.scale
+              scale: firstWithFetch.scale,
+              folderPath: firstWithFetch.folder_path || ''
             });
             return firstWithFetch.id;
           }
@@ -207,7 +215,8 @@ export const App: React.FC = () => {
       nodeId: comp.node_id,
       name: comp.name,
       format: comp.format,
-      scale: comp.scale
+      scale: comp.scale,
+      folderPath: comp.folder_path || ''
     });
   };
 
@@ -219,6 +228,7 @@ export const App: React.FC = () => {
     format: string;
     scale: number;
     figmaUrl: string;
+    folderPath?: string;
   }) => {
     setFormError(null);
     setFormInfo(null);
@@ -244,7 +254,8 @@ export const App: React.FC = () => {
         name: formData.name,
         format: formData.format,
         scale: formData.scale,
-        figmaUrl: formData.figmaUrl
+        figmaUrl: formData.figmaUrl,
+        folderPath: formData.folderPath
       });
 
       if (!result.success) {
@@ -270,6 +281,7 @@ export const App: React.FC = () => {
     format: string;
     scale: number;
     figmaUrl: string;
+    folderPath?: string;
   }) => {
     setFormError(null);
     setFormInfo(null);
@@ -289,6 +301,7 @@ export const App: React.FC = () => {
         format: formData.format,
         scale: formData.scale,
         figmaUrl: formData.figmaUrl,
+        folderPath: formData.folderPath,
         fetchNow: false
       });
 
@@ -400,31 +413,57 @@ export const App: React.FC = () => {
     }
   };
 
-  // --- Batch Check All Components ---
-  const handleCheckAll = async () => {
+  // --- Folder Management ---
+  const handleCreateFolder = async (path: string) => {
+    await api.createFolder(path);
+    const updated = await api.getFolders();
+    setFolders(updated);
+  };
+
+  const handleRenameFolder = async (oldPath: string, newPath: string) => {
+    await api.renameFolder(oldPath, newPath);
+    await loadComponents(activeComponentId);
+  };
+
+  const handleDeleteFolder = async (path: string, deleteComponents: boolean) => {
+    await api.deleteFolder(path, deleteComponents);
+    await loadComponents(activeComponentId);
+  };
+
+  const handleSelectFolderForAdd = (folderPath: string) => {
+    setFormPrefill((prev) => ({
+      ...prev,
+      folderPath
+    }));
+  };
+
+  // --- Batch Check Components (All or Folder) ---
+  const runBatchCheckFor = async (targetComponents: Component[]) => {
     setFormError(null);
     setFormInfo(null);
 
     const activeToken = token.trim();
     if (!activeToken && !hasDefaultToken) {
       setFormError(
-        'Please provide your Figma Access Token (in UI or .env) before running Check All.'
+        'Please provide your Figma Access Token (in UI or .env) before running check.'
       );
       return;
     }
 
-    if (components.length === 0) {
-      setFormError('Your watchlist is empty. Add at least one component first.');
+    if (targetComponents.length === 0) {
+      setFormError('No components to check.');
       return;
     }
 
     setIsBatchChecking(true);
     setBatchSummary(null);
 
-    // Mark all as queued
-    const initialMap = new Map<number, TransientStatus>();
-    components.forEach((c) => initialMap.set(c.id, { status: 'queued' }));
-    setTransientStatuses(initialMap);
+    // Mark targets as queued
+    setTransientStatuses((prev) => {
+      const next = new Map(prev);
+      targetComponents.forEach((c) => next.set(c.id, { status: 'queued' }));
+      return next;
+    });
 
     const results: BatchResultItem[] = [];
     let changedCount = 0;
@@ -432,8 +471,7 @@ export const App: React.FC = () => {
     let baselineCount = 0;
     let errorCount = 0;
 
-    for (const comp of components) {
-      // Mark current as loading
+    for (const comp of targetComponents) {
       setTransientStatuses((prev) => {
         const next = new Map(prev);
         next.set(comp.id, { status: 'loading' });
@@ -476,7 +514,7 @@ export const App: React.FC = () => {
     setTransientStatuses(new Map());
 
     const summary: BatchSummary = {
-      total: components.length,
+      total: targetComponents.length,
       changed: changedCount,
       unchanged: unchangedCount,
       baseline: baselineCount,
@@ -498,6 +536,15 @@ export const App: React.FC = () => {
 
     await loadComponents(targetSelect);
     setIsBatchChecking(false);
+  };
+
+  const handleCheckAll = async () => {
+    await runBatchCheckFor(components);
+  };
+
+  const handleCheckFolder = async (componentIds: number[]) => {
+    const subset = components.filter((c) => componentIds.includes(c.id));
+    await runBatchCheckFor(subset);
   };
 
   // --- Zoom Modal Handler ---
@@ -552,6 +599,7 @@ export const App: React.FC = () => {
           <AddComponentCard
             onFetchNow={handleFetchNow}
             onAddToWatchlist={handleAddToWatchlist}
+            folders={folders}
             isFetching={isFetchingForm}
             errorMessage={formError}
             infoMessage={formInfo}
@@ -567,11 +615,17 @@ export const App: React.FC = () => {
             components={components}
             activeComponentId={activeComponentId}
             transientStatuses={transientStatuses}
+            folders={folders}
             isBatchChecking={isBatchChecking}
             batchSummary={batchSummary}
             batchResults={batchResults}
             onClearBatchResults={() => setBatchResults(null)}
             onCheckAll={handleCheckAll}
+            onCheckFolder={handleCheckFolder}
+            onCreateFolder={handleCreateFolder}
+            onRenameFolder={handleRenameFolder}
+            onDeleteFolder={handleDeleteFolder}
+            onSelectFolderForAdd={handleSelectFolderForAdd}
             onSelectComponent={handleSelectComponent}
             onInspectComponent={(comp) => handleInspectComponent(comp)}
             onFetchComponent={handleFetchComponent}
@@ -611,6 +665,7 @@ export const App: React.FC = () => {
       <EditComponentModal
         isOpen={isEditOpen}
         component={editingComponent}
+        folders={folders}
         onClose={() => {
           setIsEditOpen(false);
           setEditingComponent(null);

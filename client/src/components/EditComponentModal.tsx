@@ -6,6 +6,7 @@ import { parseFigmaUrl } from '../utils';
 interface EditComponentModalProps {
   isOpen: boolean;
   component: Component | null;
+  folders?: string[];
   onClose: () => void;
   onSave: (id: number, payload: UpdateComponentPayload) => Promise<void>;
 }
@@ -13,10 +14,12 @@ interface EditComponentModalProps {
 export const EditComponentModal: React.FC<EditComponentModalProps> = ({
   isOpen,
   component,
+  folders = [],
   onClose,
   onSave
 }) => {
   const [name, setName] = useState('');
+  const [folderPath, setFolderPath] = useState('');
   const [fileKey, setFileKey] = useState('');
   const [nodeId, setNodeId] = useState('');
   const [format, setFormat] = useState('png');
@@ -28,6 +31,7 @@ export const EditComponentModal: React.FC<EditComponentModalProps> = ({
   useEffect(() => {
     if (component) {
       setName(component.name || '');
+      setFolderPath(component.folder_path || '');
       setFileKey(component.file_key || '');
       setNodeId(component.node_id || '');
       setFormat(component.format || 'png');
@@ -84,7 +88,8 @@ export const EditComponentModal: React.FC<EditComponentModalProps> = ({
         nodeId: nodeId.trim(),
         format,
         scale: Number(scale) || 2,
-        figmaUrl: figmaUrl.trim()
+        figmaUrl: figmaUrl.trim(),
+        folderPath: folderPath.trim()
       });
       onClose();
     } catch (err: unknown) {
@@ -139,6 +144,25 @@ export const EditComponentModal: React.FC<EditComponentModalProps> = ({
               placeholder="e.g. Primary CTA Button"
               required
             />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="editFolderPath">Folder / Subfolder (e.g. Design System/Buttons)</label>
+            <input
+              type="text"
+              id="editFolderPath"
+              list="editFolderOptions"
+              value={folderPath}
+              onChange={(e) => setFolderPath(e.target.value)}
+              placeholder="e.g. Design System/Buttons (or empty for root)"
+            />
+            {folders && folders.length > 0 && (
+              <datalist id="editFolderOptions">
+                {folders.map((f) => (
+                  <option key={f} value={f} />
+                ))}
+              </datalist>
+            )}
           </div>
 
           <div className="form-row">

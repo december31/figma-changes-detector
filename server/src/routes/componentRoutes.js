@@ -6,7 +6,11 @@ const {
   upsertComponent,
   updateComponent,
   deleteComponent,
-  getComponentHistory
+  getComponentHistory,
+  getAllFolders,
+  createFolder,
+  renameFolder,
+  deleteFolder
 } = require('../repositories/componentRepository');
 const { executeComponentFetch, normalizeNodeId } = require('../services/figmaService');
 
@@ -20,10 +24,53 @@ router.get('/', (req, res) => {
   }
 });
 
+// GET /api/components/folders - List all folders
+router.get('/folders', (req, res) => {
+  try {
+    const folders = getAllFolders();
+    res.json({ success: true, folders });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/components/folders - Create folder
+router.post('/folders', (req, res) => {
+  try {
+    const { path } = req.body || {};
+    const result = createFolder(path);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// PUT /api/components/folders - Rename folder
+router.put('/folders', (req, res) => {
+  try {
+    const { oldPath, newPath } = req.body || {};
+    const result = renameFolder(oldPath, newPath);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// DELETE /api/components/folders - Delete folder
+router.delete('/folders', (req, res) => {
+  try {
+    const { path, deleteComponents } = req.body || {};
+    const result = deleteFolder(path, Boolean(deleteComponents));
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
 // POST /api/components - Add component (or fetch immediately)
 router.post('/', async (req, res) => {
   try {
-    const { name, fileKey, nodeId, format = 'png', scale = 2, figmaUrl = '', fetchNow = false, token } = req.body;
+    const { name, fileKey, nodeId, format = 'png', scale = 2, figmaUrl = '', fetchNow = false, token, folderPath = '' } = req.body;
     if (!fileKey || !fileKey.trim() || !nodeId || !String(nodeId).trim()) {
       return res.status(400).json({
         success: false,
@@ -49,7 +96,8 @@ router.post('/', async (req, res) => {
         format,
         scale,
         customName: name ? name.trim() : '',
-        figmaUrl
+        figmaUrl,
+        folderPath
       });
       return res.json({ success: true, ...result });
     }
@@ -60,7 +108,8 @@ router.post('/', async (req, res) => {
       nodeId: cleanNodeId,
       format,
       scale,
-      figmaUrl
+      figmaUrl,
+      folderPath
     });
 
     return res.json({ success: true, component });
@@ -78,7 +127,7 @@ router.put('/:id', (req, res) => {
       return res.status(404).json({ success: false, error: 'Component not found in watchlist.' });
     }
 
-    const { name, fileKey, nodeId, format, scale, figmaUrl } = req.body || {};
+    const { name, fileKey, nodeId, format, scale, figmaUrl, folderPath } = req.body || {};
     if (fileKey !== undefined && !String(fileKey).trim()) {
       return res.status(400).json({ success: false, error: 'File Key cannot be empty.' });
     }
@@ -99,7 +148,8 @@ router.put('/:id', (req, res) => {
       nodeId: nodeId !== undefined ? normalizeNodeId(nodeId) : undefined,
       format: validFormat,
       scale: validScale,
-      figmaUrl: figmaUrl !== undefined ? String(figmaUrl).trim() : undefined
+      figmaUrl: figmaUrl !== undefined ? String(figmaUrl).trim() : undefined,
+      folderPath: folderPath !== undefined ? String(folderPath).trim() : undefined
     });
 
     return res.json({ success: true, component: updated });

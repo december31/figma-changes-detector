@@ -55,6 +55,131 @@ try {
   // Column already exists
 }
 
+// Ensure folder_path column exists for tracked_components
+try {
+  db.exec(`ALTER TABLE tracked_components ADD COLUMN folder_path TEXT DEFAULT '';`);
+} catch (e) {
+  // Column already exists
+}
+
+// Folders table for explicitly created / empty folders
+db.exec(`
+  CREATE TABLE IF NOT EXISTS folders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    path TEXT UNIQUE NOT NULL,
+    created_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_tracked_folder ON tracked_components(folder_path);
+`);
+
+function normalizeFolderPath(pathStr) {
+  if (!pathStr || typeof pathStr !== 'string') return '';
+  return pathStr
+    .split('/')
+    .map(s => s.trim())
+    .filter(Boolean)
+    .join('/');
+}
+
+function getAllFolders() {
+  const explicit = db.prepare(`SELECT path FROM folders ORDER BY path ASC`).all().map(r => r.path);
+  const fromComps = db.prepare(`
+    SELECT DISTINCT folder_path FROM tracked_components
+    WHERE folder_path IS NOT NULL AND folder_path != ''
+  `).all().map(r => r.folder_path);
+
+  const folderSet = new Set();
+  function addWithAncestors(p) {
+    const norm = normalizeFolderPath(p);
+    if (!norm) return;
+    const parts = norm.split('/');
+    let curr = '';
+    for (const part of parts) {
+      curr = curr ? `${curr}/${part}` : part;
+      folderSet.add(curr);
+    }
+  }
+
+  explicit.forEach(addWithAncestors);
+  fromComps.forEach(addWithAncestors);
+
+  return Array.from(folderSet).sort();
+}
+
+function createFolder(pathStr) {
+  const norm = normalizeFolderPath(pathStr);
+  if (!norm) throw new Error('Folder path cannot be empty.');
+  const now = new Date().toISOString();
+  db.prepare(`
+    INSERT OR IGNORE INTO folders (path, created_at) VALUES (?, ?)
+  `).run(norm, now);
+  return { path: norm };
+}
+
+function renameFolder(oldPath, newPath) {
+  const oldNorm = normalizeFolderPath(oldPath);
+  const newNorm = normalizeFolderPath(newPath);
+  if (!oldNorm || !newNorm) throw new Error('Both old and new folder paths are required.');
+  if (oldNorm === newNorm) return { oldPath: oldNorm, newPath: newNorm };
+
+  // Update tracked_components exact match
+  db.prepare(`UPDATE tracked_components SET folder_path = ? WHERE folder_path = ?`).run(newNorm, oldNorm);
+
+  // Update tracked_components subfolders
+  const subComponents = db.prepare(`
+    SELECT id, folder_path FROM tracked_components WHERE folder_path LIKE ? || '/%'
+  `).all(oldNorm);
+  const updateCompStmt = db.prepare(`UPDATE tracked_components SET folder_path = ? WHERE id = ?`);
+  for (const comp of subComponents) {
+    const updated = newNorm + comp.folder_path.slice(oldNorm.length);
+    updateCompStmt.run(updated, comp.id);
+  }
+
+  // Update folders table
+  db.prepare(`UPDATE OR IGNORE folders SET path = ? WHERE path = ?`).run(newNorm, oldNorm);
+  db.prepare(`DELETE FROM folders WHERE path = ?`).run(oldNorm);
+  const subFolders = db.prepare(`SELECT id, path FROM folders WHERE path LIKE ? || '/%'`).all(oldNorm);
+  const updateFolderStmt = db.prepare(`UPDATE OR IGNORE folders SET path = ? WHERE id = ?`);
+  for (const f of subFolders) {
+    const updated = newNorm + f.path.slice(oldNorm.length);
+    updateFolderStmt.run(updated, f.id);
+  }
+
+  return { oldPath: oldNorm, newPath: newNorm };
+}
+
+function deleteFolder(pathStr, deleteComponents = false) {
+  const norm = normalizeFolderPath(pathStr);
+  if (!norm) throw new Error('Folder path is required.');
+
+  if (deleteComponents) {
+    const comps = db.prepare(`
+      SELECT id FROM tracked_components WHERE folder_path = ? OR folder_path LIKE ? || '/%'
+    `).all(norm, norm);
+    for (const c of comps) {
+      deleteComponent(c.id);
+    }
+  } else {
+    const parentPath = norm.includes('/') ? norm.slice(0, norm.lastIndexOf('/')) : '';
+    db.prepare(`
+      UPDATE tracked_components SET folder_path = ? WHERE folder_path = ?
+    `).run(parentPath, norm);
+
+    const subComps = db.prepare(`
+      SELECT id, folder_path FROM tracked_components WHERE folder_path LIKE ? || '/%'
+    `).all(norm);
+    const updateCompStmt = db.prepare(`UPDATE tracked_components SET folder_path = ? WHERE id = ?`);
+    for (const c of subComps) {
+      const rest = c.folder_path.slice(norm.length);
+      const updated = parentPath ? `${parentPath}${rest}` : rest.replace(/^\//, '');
+      updateCompStmt.run(updated, c.id);
+    }
+  }
+
+  db.prepare(`DELETE FROM folders WHERE path = ? OR path LIKE ? || '/%'`).run(norm, norm);
+  return { success: true };
+}
+
 function getAllComponentsWithStatus() {
   const components = db.prepare(`
     SELECT * FROM tracked_components ORDER BY id ASC
@@ -93,8 +218,9 @@ function getComponentByFileAndNode(fileKey, nodeId) {
   `).get(fileKey, nodeId);
 }
 
-function upsertComponent({ name, fileKey, fileName, nodeId, nodeType, format = 'png', scale = 2, figmaUrl = '' }) {
+function upsertComponent({ name, fileKey, fileName, nodeId, nodeType, format = 'png', scale = 2, figmaUrl = '', folderPath }) {
   const existing = getComponentByFileAndNode(fileKey, nodeId);
+  const normalizedFolder = folderPath !== undefined ? normalizeFolderPath(folderPath) : undefined;
   if (existing) {
     db.prepare(`
       UPDATE tracked_components
@@ -103,16 +229,17 @@ function upsertComponent({ name, fileKey, fileName, nodeId, nodeType, format = '
           node_type = COALESCE(NULLIF(?, ''), node_type),
           format = COALESCE(NULLIF(?, ''), format),
           scale = COALESCE(?, scale),
-          figma_url = COALESCE(NULLIF(?, ''), figma_url)
+          figma_url = COALESCE(NULLIF(?, ''), figma_url),
+          folder_path = COALESCE(?, folder_path)
       WHERE id = ?
-    `).run(name, fileName, nodeType, format, scale, figmaUrl, existing.id);
+    `).run(name, fileName, nodeType, format, scale, figmaUrl, normalizedFolder, existing.id);
     return getComponentById(existing.id);
   }
 
   const now = new Date().toISOString();
   const result = db.prepare(`
-    INSERT INTO tracked_components (name, file_key, file_name, node_id, node_type, format, scale, figma_url, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO tracked_components (name, file_key, file_name, node_id, node_type, format, scale, figma_url, folder_path, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     name || `Node ${nodeId}`,
     fileKey,
@@ -122,13 +249,14 @@ function upsertComponent({ name, fileKey, fileName, nodeId, nodeType, format = '
     format || 'png',
     Number(scale) || 2,
     figmaUrl || '',
+    normalizedFolder || '',
     now
   );
 
   return getComponentById(result.lastInsertRowid);
 }
 
-function updateComponent(id, { name, fileKey, fileName, nodeId, nodeType, format, scale, figmaUrl }) {
+function updateComponent(id, { name, fileKey, fileName, nodeId, nodeType, format, scale, figmaUrl, folderPath }) {
   const existing = getComponentById(id);
   if (!existing) return null;
 
@@ -152,6 +280,7 @@ function updateComponent(id, { name, fileKey, fileName, nodeId, nodeType, format
   const newFormat = format !== undefined ? format : existing.format;
   const newScale = scale !== undefined ? Number(scale) : existing.scale;
   const newFigmaUrl = figmaUrl !== undefined ? figmaUrl : existing.figma_url;
+  const newFolderPath = folderPath !== undefined ? normalizeFolderPath(folderPath) : (existing.folder_path || '');
 
   db.prepare(`
     UPDATE tracked_components
@@ -162,9 +291,10 @@ function updateComponent(id, { name, fileKey, fileName, nodeId, nodeType, format
         node_type = ?,
         format = ?,
         scale = ?,
-        figma_url = ?
+        figma_url = ?,
+        folder_path = ?
     WHERE id = ?
-  `).run(newName, newFileKey, newFileName, newNodeId, newNodeType, newFormat, newScale, newFigmaUrl, id);
+  `).run(newName, newFileKey, newFileName, newNodeId, newNodeType, newFormat, newScale, newFigmaUrl, newFolderPath, id);
 
   return getComponentById(id);
 }
@@ -266,5 +396,10 @@ module.exports = {
   getLatestFetchForComponent,
   getFetchById,
   getComponentHistory,
-  insertFetchRecord
+  insertFetchRecord,
+  normalizeFolderPath,
+  getAllFolders,
+  createFolder,
+  renameFolder,
+  deleteFolder
 };

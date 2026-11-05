@@ -21,6 +21,7 @@ export function initWatchlist() {
   const fileKeyInput = document.getElementById('fileKey');
   const nodeIdInput = document.getElementById('nodeId');
   const compCustomNameInput = document.getElementById('compCustomName');
+  const compFolderPathInput = document.getElementById('compFolderPath');
   const renderFormatSelect = document.getElementById('renderFormat');
   const renderScaleSelect = document.getElementById('renderScale');
   const figmaUrlInput = document.getElementById('figmaUrl');
@@ -31,6 +32,7 @@ export function initWatchlist() {
       const fileKey = fileKeyInput.value.trim();
       const nodeId = nodeIdInput.value.trim();
       const name = compCustomNameInput.value.trim();
+      const folderPath = compFolderPathInput ? compFolderPathInput.value.trim() : '';
       const format = renderFormatSelect.value;
       const scale = renderScaleSelect.value;
       const figmaUrl = figmaUrlInput.value.trim();
@@ -46,7 +48,7 @@ export function initWatchlist() {
         const res = await fetch('/api/components', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, fileKey, nodeId, format, scale, figmaUrl, fetchNow: false })
+          body: JSON.stringify({ name, fileKey, nodeId, format, scale, figmaUrl, folderPath, fetchNow: false })
         });
         const data = await res.json();
         if (!res.ok || !data.success) {

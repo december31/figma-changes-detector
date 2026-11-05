@@ -10,6 +10,7 @@ interface AddComponentCardProps {
     format: string;
     scale: number;
     figmaUrl: string;
+    folderPath?: string;
   }) => Promise<void>;
   onAddToWatchlist: (formData: {
     fileKey: string;
@@ -18,7 +19,9 @@ interface AddComponentCardProps {
     format: string;
     scale: number;
     figmaUrl: string;
+    folderPath?: string;
   }) => Promise<void>;
+  folders?: string[];
   isFetching: boolean;
   errorMessage: string | null;
   infoMessage: string | null;
@@ -29,12 +32,14 @@ interface AddComponentCardProps {
     name?: string;
     format?: string;
     scale?: number;
+    folderPath?: string;
   };
 }
 
 export const AddComponentCard: React.FC<AddComponentCardProps> = ({
   onFetchNow,
   onAddToWatchlist,
+  folders = [],
   isFetching,
   errorMessage,
   infoMessage,
@@ -43,6 +48,7 @@ export const AddComponentCard: React.FC<AddComponentCardProps> = ({
 }) => {
   const [figmaUrl, setFigmaUrl] = useState('');
   const [compCustomName, setCompCustomName] = useState(initialValues?.name || '');
+  const [folderPath, setFolderPath] = useState(initialValues?.folderPath || '');
   const [fileKey, setFileKey] = useState(initialValues?.fileKey || '');
   const [nodeId, setNodeId] = useState(initialValues?.nodeId || '');
   const [renderFormat, setRenderFormat] = useState(initialValues?.format || 'png');
@@ -56,6 +62,7 @@ export const AddComponentCard: React.FC<AddComponentCardProps> = ({
       if (initialValues.name !== undefined) setCompCustomName(initialValues.name);
       if (initialValues.format !== undefined) setRenderFormat(initialValues.format);
       if (initialValues.scale !== undefined) setRenderScale(String(initialValues.scale));
+      if (initialValues.folderPath !== undefined) setFolderPath(initialValues.folderPath);
     }
   }, [initialValues]);
 
@@ -77,7 +84,8 @@ export const AddComponentCard: React.FC<AddComponentCardProps> = ({
       name: compCustomName.trim(),
       format: renderFormat,
       scale: Number(renderScale) || 2,
-      figmaUrl: figmaUrl.trim()
+      figmaUrl: figmaUrl.trim(),
+      folderPath: folderPath.trim()
     });
   };
 
@@ -88,7 +96,8 @@ export const AddComponentCard: React.FC<AddComponentCardProps> = ({
       name: compCustomName.trim(),
       format: renderFormat,
       scale: Number(renderScale) || 2,
-      figmaUrl: figmaUrl.trim()
+      figmaUrl: figmaUrl.trim(),
+      folderPath: folderPath.trim()
     });
   };
 
@@ -119,6 +128,25 @@ export const AddComponentCard: React.FC<AddComponentCardProps> = ({
           onChange={(e) => setCompCustomName(e.target.value)}
           placeholder="e.g. Primary CTA Button (auto-detected if blank)"
         />
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="compFolderPath">Folder / Subfolder (Optional)</label>
+        <input
+          type="text"
+          id="compFolderPath"
+          list="folderSuggestions"
+          value={folderPath}
+          onChange={(e) => setFolderPath(e.target.value)}
+          placeholder="e.g. Design System/Buttons (or leave empty for root)"
+        />
+        {folders && folders.length > 0 && (
+          <datalist id="folderSuggestions">
+            {folders.map((f) => (
+              <option key={f} value={f} />
+            ))}
+          </datalist>
+        )}
       </div>
 
       <div className="form-row">

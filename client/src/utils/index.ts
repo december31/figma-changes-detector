@@ -41,3 +41,5 @@ export function getStatusPillMeta(latestFetch?: FetchRecord | null): { text: str
   }
   return { text: 'Baseline', cls: 'baseline' };
 }
+
+export * from './tree';

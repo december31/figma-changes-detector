@@ -92,6 +92,54 @@ export async function deleteComponent(id: number): Promise<{ success: boolean }>
   return data;
 }
 
+export async function getFolders(): Promise<string[]> {
+  const res = await fetch(`${API_BASE}/components/folders`);
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Failed to fetch folders.');
+  }
+  return data.folders || [];
+}
+
+export async function createFolder(path: string): Promise<{ path: string }> {
+  const res = await fetch(`${API_BASE}/components/folders`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path })
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Failed to create folder.');
+  }
+  return data;
+}
+
+export async function renameFolder(oldPath: string, newPath: string): Promise<{ oldPath: string; newPath: string }> {
+  const res = await fetch(`${API_BASE}/components/folders`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ oldPath, newPath })
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Failed to rename folder.');
+  }
+  return data;
+}
+
+export async function deleteFolder(path: string, deleteComponents: boolean = false): Promise<{ success: boolean }> {
+  const res = await fetch(`${API_BASE}/components/folders`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path, deleteComponents })
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Failed to delete folder.');
+  }
+  return data;
+}
+
 export async function fetchComponentDirect(
   payload: DirectFetchPayload
 ): Promise<ComponentFetchResponse> {

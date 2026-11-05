@@ -13,6 +13,7 @@ export interface Component {
   format: string;
   scale: number;
   figma_url?: string;
+  folder_path?: string;
   created_at?: string;
   latestFetch?: FetchRecord | null;
   previousFetch?: FetchRecord | null;
@@ -92,6 +93,7 @@ export interface CreateComponentPayload {
   format?: string;
   scale?: number;
   figmaUrl?: string;
+  folderPath?: string;
   fetchNow?: boolean;
   token?: string;
 }
@@ -103,6 +105,7 @@ export interface UpdateComponentPayload {
   format?: string;
   scale?: number;
   figmaUrl?: string;
+  folderPath?: string;
 }
 
 export interface DirectFetchPayload {
@@ -113,6 +116,22 @@ export interface DirectFetchPayload {
   scale?: number;
   name?: string;
   figmaUrl?: string;
+  folderPath?: string;
+}
+
+export interface FolderTreeNode {
+  type: 'folder';
+  path: string;
+  name: string;
+  depth: number;
+  subfolders: FolderTreeNode[];
+  components: Component[];
+  totalComponentCount: number;
+}
+
+export interface TreeData {
+  folders: FolderTreeNode[];
+  rootComponents: Component[];
 }
 
 export interface ComponentFetchResponse {
