@@ -13,6 +13,7 @@ interface ComponentItemProps {
   onFetch: (comp: Component) => void;
   onEdit: (comp: Component) => void;
   onDelete: (comp: Component) => void;
+  onChangeFolder?: (comp: Component) => void;
 }
 
 export const ComponentItem: React.FC<ComponentItemProps> = ({
@@ -24,7 +25,8 @@ export const ComponentItem: React.FC<ComponentItemProps> = ({
   onInspect,
   onFetch,
   onEdit,
-  onDelete
+  onDelete,
+  onChangeFolder
 }) => {
   const lastFetchedStr = component.latestFetch
     ? new Date(component.latestFetch.fetched_at).toLocaleString()
@@ -85,6 +87,19 @@ export const ComponentItem: React.FC<ComponentItemProps> = ({
         </div>
         <div className="watchlist-tag-row">
           {renderStatusPill()}
+          {onChangeFolder && (
+            <button
+              type="button"
+              className="watchlist-folder-pill"
+              title={`Folder: ${component.folder_path || component.file_name || 'Root'} (Click to change folder)`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onChangeFolder(component);
+              }}
+            >
+              📁 {component.folder_path || component.file_name || 'Root'}
+            </button>
+          )}
         </div>
         <span className="watchlist-meta">
           Node <code>{component.node_id}</code> &bull; {component.totalFetches || 0} fetch(es) &bull;{' '}

@@ -2,6 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Component, BatchResultItem, BatchSummary, TransientStatus, FolderTreeNode } from '../types';
 import { ComponentItem } from './ComponentItem';
+import { FolderPickerModal } from './FolderPickerModal';
 import { getStatusPillMeta, buildComponentTree, filterTree, getFolderComponentIds } from '../utils';
 
 interface WatchlistCardProps {
@@ -25,6 +26,7 @@ interface WatchlistCardProps {
   onEditComponent: (comp: Component) => void;
   onDeleteComponent: (comp: Component) => void;
   onInspectBatchItem: (item: BatchResultItem) => void;
+  onUpdateComponentFolder?: (id: number, folderPath: string) => Promise<void>;
 }
 
 export const WatchlistCard: React.FC<WatchlistCardProps> = ({
@@ -47,11 +49,13 @@ export const WatchlistCard: React.FC<WatchlistCardProps> = ({
   onFetchComponent,
   onEditComponent,
   onDeleteComponent,
-  onInspectBatchItem
+  onInspectBatchItem,
+  onUpdateComponentFolder
 }) => {
   // Tree state
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
+  const [folderPickerComp, setFolderPickerComp] = useState<Component | null>(null);
 
   // Folder modal state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -278,6 +282,7 @@ export const WatchlistCard: React.FC<WatchlistCardProps> = ({
                 onFetch={onFetchComponent}
                 onEdit={onEditComponent}
                 onDelete={onDeleteComponent}
+                onChangeFolder={setFolderPickerComp}
               />
             ))}
             {node.components.length === 0 && node.subfolders.length === 0 && (
@@ -550,6 +555,7 @@ export const WatchlistCard: React.FC<WatchlistCardProps> = ({
                     onFetch={onFetchComponent}
                     onEdit={onEditComponent}
                     onDelete={onDeleteComponent}
+                    onChangeFolder={setFolderPickerComp}
                   />
                 ))}
               </div>
@@ -727,6 +733,22 @@ export const WatchlistCard: React.FC<WatchlistCardProps> = ({
           </div>
         </div>
       )}
+
+      {/* Quick Folder Picker for Component */}
+      <FolderPickerModal
+        isOpen={Boolean(folderPickerComp)}
+        onClose={() => setFolderPickerComp(null)}
+        fileName={folderPickerComp?.file_name || ''}
+        currentFolderPath={folderPickerComp?.folder_path || ''}
+        existingFolders={folders}
+        onSelectFolder={async (newPath) => {
+          if (folderPickerComp && onUpdateComponentFolder) {
+            await onUpdateComponentFolder(folderPickerComp.id, newPath);
+          }
+          setFolderPickerComp(null);
+        }}
+        onCreateFolder={onCreateFolder}
+      />
     </div>
   );
 };

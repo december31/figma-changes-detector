@@ -72,7 +72,7 @@ router.delete('/folders', (req, res) => {
 // POST /api/components - Add component (or fetch immediately)
 router.post('/', async (req, res) => {
   try {
-    const { name, fileKey, nodeId, format = 'png', scale = 2, figmaUrl = '', fetchNow = false, token, folderPath = '' } = req.body;
+    const { name, fileKey, fileName, nodeId, format = 'png', scale = 2, figmaUrl = '', fetchNow = false, token, folderPath = '' } = req.body;
     if (!fileKey || !fileKey.trim() || !nodeId || !String(nodeId).trim()) {
       return res.status(400).json({
         success: false,
@@ -94,6 +94,7 @@ router.post('/', async (req, res) => {
       const result = await executeComponentFetch({
         token: activeToken,
         fileKey: cleanFileKey,
+        fileName: fileName ? fileName.trim() : undefined,
         nodeId: cleanNodeId,
         format,
         scale,
@@ -105,7 +106,7 @@ router.post('/', async (req, res) => {
     }
 
     const parsedFromUrl = figmaUrl ? parseFigmaUrl(figmaUrl) : null;
-    const fileTitle = (parsedFromUrl && parsedFromUrl.fileName) || null;
+    const fileTitle = (fileName && fileName.trim()) || (parsedFromUrl && parsedFromUrl.fileName) || null;
     const resolvedFolder = fileTitle
       ? resolveSemiRootFolder(fileTitle, getAllFolders(), folderPath)
       : folderPath;
@@ -136,7 +137,7 @@ router.put('/:id', (req, res) => {
       return res.status(404).json({ success: false, error: 'Component not found in watchlist.' });
     }
 
-    const { name, fileKey, nodeId, format, scale, figmaUrl, folderPath } = req.body || {};
+    const { name, fileKey, fileName, nodeId, format, scale, figmaUrl, folderPath } = req.body || {};
     if (fileKey !== undefined && !String(fileKey).trim()) {
       return res.status(400).json({ success: false, error: 'File Key cannot be empty.' });
     }
@@ -154,6 +155,7 @@ router.put('/:id', (req, res) => {
     const updated = updateComponent(id, {
       name: name !== undefined ? String(name).trim() : undefined,
       fileKey: fileKey !== undefined ? String(fileKey).trim() : undefined,
+      fileName: fileName !== undefined ? String(fileName).trim() : undefined,
       nodeId: nodeId !== undefined ? normalizeNodeId(nodeId) : undefined,
       format: validFormat,
       scale: validScale,

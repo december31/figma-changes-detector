@@ -1,6 +1,7 @@
 // client/src/components/AddComponentCard.tsx
 import React, { useState } from 'react';
 import { parseFigmaUrl } from '../utils';
+import { FolderPickerModal } from './FolderPickerModal';
 
 interface AddComponentCardProps {
   onFetchNow: (formData: {
@@ -24,6 +25,7 @@ interface AddComponentCardProps {
     folderPath?: string;
   }) => Promise<void>;
   folders?: string[];
+  onCreateFolder?: (path: string) => Promise<void>;
   isFetching: boolean;
   errorMessage: string | null;
   infoMessage: string | null;
@@ -43,6 +45,7 @@ export const AddComponentCard: React.FC<AddComponentCardProps> = ({
   onFetchNow,
   onAddToWatchlist,
   folders = [],
+  onCreateFolder,
   isFetching,
   errorMessage,
   infoMessage,
@@ -57,6 +60,7 @@ export const AddComponentCard: React.FC<AddComponentCardProps> = ({
   const [nodeId, setNodeId] = useState(initialValues?.nodeId || '');
   const [renderFormat, setRenderFormat] = useState(initialValues?.format || 'png');
   const [renderScale, setRenderScale] = useState(String(initialValues?.scale || 2));
+  const [isFolderPickerOpen, setIsFolderPickerOpen] = useState(false);
 
   // Update fields when initialValues change from external selection
   React.useEffect(() => {
@@ -80,6 +84,7 @@ export const AddComponentCard: React.FC<AddComponentCardProps> = ({
       if (parsed.nodeId) setNodeId(parsed.nodeId);
       if (parsed.fileName) {
         setFileName(parsed.fileName);
+        setFolderPath((prev) => (prev && prev !== fileName ? prev : (parsed.fileName || '')));
       }
       onClearBanners();
     }
@@ -146,22 +151,52 @@ export const AddComponentCard: React.FC<AddComponentCardProps> = ({
       </div>
 
       <div className="form-group">
-        <label htmlFor="compFolderPath">Folder / Subfolder (Optional)</label>
-        <input
-          type="text"
-          id="compFolderPath"
-          list="folderSuggestions"
-          value={folderPath}
-          onChange={(e) => setFolderPath(e.target.value)}
-          placeholder="e.g. Design System/Buttons (or leave empty for root)"
-        />
-        {folders && folders.length > 0 && (
-          <datalist id="folderSuggestions">
-            {folders.map((f) => (
-              <option key={f} value={f} />
-            ))}
-          </datalist>
-        )}
+        <label htmlFor="compFolderPath">Folder in Figma File</label>
+        <div className="folder-picker-control">
+          <div className="folder-display-row">
+            <div
+              className="folder-display-box"
+              onClick={() => setIsFolderPickerOpen(true)}
+              title="Click to choose or create folder"
+            >
+              <span className="folder-display-icon">📁</span>
+              <div className="folder-display-info">
+                <span className="folder-display-text">
+                  {folderPath
+                    ? folderPath
+                    : fileName
+                    ? `${fileName} (File Root)`
+                    : 'Paste Figma link to choose folder'}
+                </span>
+                {fileName && (
+                  <span className="folder-display-hint">
+                    {folderPath && folderPath.toLowerCase() !== fileName.toLowerCase()
+                      ? `Subfolder inside "${fileName}"`
+                      : 'File Root Folder'}
+                  </span>
+                )}
+              </div>
+            </div>
+            <button
+              type="button"
+              className="btn-secondary btn-folder-picker-open"
+              onClick={() => setIsFolderPickerOpen(true)}
+              title="Choose or create folder for this component"
+            >
+              📂 Choose / Create
+            </button>
+          </div>
+          {folderPath && fileName && folderPath.toLowerCase() !== fileName.toLowerCase() && (
+            <button
+              type="button"
+              className="btn-folder-reset"
+              onClick={() => setFolderPath(fileName)}
+              title={`Reset to root folder "${fileName}"`}
+            >
+              ↩ Reset to Root ({fileName})
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="form-group">
@@ -257,6 +292,18 @@ export const AddComponentCard: React.FC<AddComponentCardProps> = ({
 
       {errorMessage && <div id="errorBanner" className="alert alert-error">{errorMessage}</div>}
       {infoMessage && <div id="infoBanner" className="alert alert-info">{infoMessage}</div>}
+
+      <FolderPickerModal
+        isOpen={isFolderPickerOpen}
+        onClose={() => setIsFolderPickerOpen(false)}
+        fileName={fileName}
+        currentFolderPath={folderPath}
+        existingFolders={folders}
+        onSelectFolder={(newPath) => {
+          setFolderPath(newPath);
+        }}
+        onCreateFolder={onCreateFolder}
+      />
     </div>
   );
 };

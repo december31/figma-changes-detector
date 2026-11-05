@@ -610,6 +610,7 @@ export const App: React.FC = () => {
             onFetchNow={handleFetchNow}
             onAddToWatchlist={handleAddToWatchlist}
             folders={folders}
+            onCreateFolder={handleCreateFolder}
             isFetching={isFetchingForm}
             errorMessage={formError}
             infoMessage={formInfo}
@@ -642,6 +643,9 @@ export const App: React.FC = () => {
             onEditComponent={handleOpenEdit}
             onDeleteComponent={handleDeleteComponent}
             onInspectBatchItem={handleInspectBatchItem}
+            onUpdateComponentFolder={async (id, folderPath) => {
+              await handleSaveEdit(id, { folderPath });
+            }}
           />
         </section>
 
@@ -676,6 +680,7 @@ export const App: React.FC = () => {
         isOpen={isEditOpen}
         component={editingComponent}
         folders={folders}
+        onCreateFolder={handleCreateFolder}
         onClose={() => {
           setIsEditOpen(false);
           setEditingComponent(null);

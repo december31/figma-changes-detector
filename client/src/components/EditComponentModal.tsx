@@ -2,11 +2,13 @@
 import React, { useState, useEffect } from 'react';
 import { Component, UpdateComponentPayload } from '../types';
 import { parseFigmaUrl } from '../utils';
+import { FolderPickerModal } from './FolderPickerModal';
 
 interface EditComponentModalProps {
   isOpen: boolean;
   component: Component | null;
   folders?: string[];
+  onCreateFolder?: (path: string) => Promise<void>;
   onClose: () => void;
   onSave: (id: number, payload: UpdateComponentPayload) => Promise<void>;
 }
@@ -15,6 +17,7 @@ export const EditComponentModal: React.FC<EditComponentModalProps> = ({
   isOpen,
   component,
   folders = [],
+  onCreateFolder,
   onClose,
   onSave
 }) => {
@@ -28,6 +31,7 @@ export const EditComponentModal: React.FC<EditComponentModalProps> = ({
   const [figmaUrl, setFigmaUrl] = useState('');
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isFolderPickerOpen, setIsFolderPickerOpen] = useState(false);
 
   useEffect(() => {
     if (component) {
@@ -155,22 +159,52 @@ export const EditComponentModal: React.FC<EditComponentModalProps> = ({
           </div>
 
           <div className="form-group">
-            <label htmlFor="editFolderPath">Folder / Subfolder (e.g. Design System/Buttons)</label>
-            <input
-              type="text"
-              id="editFolderPath"
-              list="editFolderOptions"
-              value={folderPath}
-              onChange={(e) => setFolderPath(e.target.value)}
-              placeholder="e.g. Design System/Buttons (or empty for root)"
-            />
-            {folders && folders.length > 0 && (
-              <datalist id="editFolderOptions">
-                {folders.map((f) => (
-                  <option key={f} value={f} />
-                ))}
-              </datalist>
-            )}
+            <label htmlFor="editFolderPath">Folder in Figma File</label>
+            <div className="folder-picker-control">
+              <div className="folder-display-row">
+                <div
+                  className="folder-display-box"
+                  onClick={() => setIsFolderPickerOpen(true)}
+                  title="Click to choose or create folder"
+                >
+                  <span className="folder-display-icon">📁</span>
+                  <div className="folder-display-info">
+                    <span className="folder-display-text">
+                      {folderPath
+                        ? folderPath
+                        : fileName
+                        ? `${fileName} (File Root)`
+                        : 'No folder chosen'}
+                    </span>
+                    {fileName && (
+                      <span className="folder-display-hint">
+                        {folderPath && folderPath.toLowerCase() !== fileName.toLowerCase()
+                          ? `Subfolder inside "${fileName}"`
+                          : 'File Root Folder'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn-secondary btn-folder-picker-open"
+                  onClick={() => setIsFolderPickerOpen(true)}
+                  title="Choose or create folder for this component"
+                >
+                  📂 Choose / Create
+                </button>
+              </div>
+              {folderPath && fileName && folderPath.toLowerCase() !== fileName.toLowerCase() && (
+                <button
+                  type="button"
+                  className="btn-folder-reset"
+                  onClick={() => setFolderPath(fileName)}
+                  title={`Reset to root folder "${fileName}"`}
+                >
+                  ↩ Reset to Root ({fileName})
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="form-group">
@@ -273,6 +307,18 @@ export const EditComponentModal: React.FC<EditComponentModalProps> = ({
             </button>
           </div>
         </form>
+
+        <FolderPickerModal
+          isOpen={isFolderPickerOpen}
+          onClose={() => setIsFolderPickerOpen(false)}
+          fileName={fileName || component?.file_name || ''}
+          currentFolderPath={folderPath}
+          existingFolders={folders}
+          onSelectFolder={(newPath) => {
+            setFolderPath(newPath);
+          }}
+          onCreateFolder={onCreateFolder}
+        />
       </div>
     </div>
   );
