@@ -1,6 +1,7 @@
 // client/src/components/FolderPickerModal.tsx
 import React, { useState, useMemo, useEffect } from 'react';
 import { normalizeFolderPath } from '../utils';
+import * as api from '../services/api';
 
 interface FolderPickerModalProps {
   isOpen: boolean;
@@ -10,6 +11,7 @@ interface FolderPickerModalProps {
   existingFolders?: string[];
   onSelectFolder: (folderPath: string) => void | Promise<void>;
   onCreateFolder?: (folderPath: string) => Promise<void>;
+  onDeleteFolder?: (folderPath: string) => Promise<void>;
 }
 
 export const FolderPickerModal: React.FC<FolderPickerModalProps> = ({
@@ -19,13 +21,15 @@ export const FolderPickerModal: React.FC<FolderPickerModalProps> = ({
   currentFolderPath = '',
   existingFolders = [],
   onSelectFolder,
-  onCreateFolder
+  onCreateFolder,
+  onDeleteFolder
 }) => {
   const [searchFilter, setSearchFilter] = useState('');
   const [newFolderName, setNewFolderName] = useState('');
   const [selectedParent, setSelectedParent] = useState('');
   const [selectedFolder, setSelectedFolder] = useState<string>(currentFolderPath);
   const [isCreating, setIsCreating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const cleanFileName = (fileName || '').trim();
@@ -100,6 +104,43 @@ export const FolderPickerModal: React.FC<FolderPickerModalProps> = ({
       await onSelectFolder(path);
     } catch (err: unknown) {
       setErrorMsg(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const handleDeleteSubfolder = async (fullPath: string, relPath: string) => {
+    setErrorMsg(null);
+    if (!fullPath || fullPath.toLowerCase() === rootFolderName.toLowerCase() || !fullPath.includes('/')) {
+      setErrorMsg('The root folder cannot be deleted.');
+      return;
+    }
+
+    const confirmed = window.confirm(`Are you sure you want to delete subfolder "${relPath}"?`);
+    if (!confirmed) return;
+
+    setIsDeleting(fullPath);
+    try {
+      if (onDeleteFolder) {
+        await onDeleteFolder(fullPath);
+      } else {
+        await api.deleteFolder(fullPath, false);
+      }
+
+      // If the currently selected folder was or was inside the deleted folder, reset to root
+      const normDeleted = normalizeFolderPath(fullPath).toLowerCase();
+      const normSelected = normalizeFolderPath(selectedFolder).toLowerCase();
+      if (normSelected === normDeleted || normSelected.startsWith(normDeleted + '/')) {
+        setSelectedFolder(rootFolderName);
+        await onSelectFolder(rootFolderName);
+      }
+
+      // If parent select for creation was inside deleted folder, reset to root
+      if (selectedParent.toLowerCase() === normDeleted || selectedParent.toLowerCase().startsWith(normDeleted + '/')) {
+        setSelectedParent(rootFolderName);
+      }
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsDeleting(null);
     }
   };
 
@@ -277,6 +318,18 @@ export const FolderPickerModal: React.FC<FolderPickerModalProps> = ({
                           }}
                         >
                           + Sub
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-mini btn-folder-delete"
+                          title={`Delete subfolder "${sf.relPath}"`}
+                          disabled={isDeleting === sf.fullPath}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteSubfolder(sf.fullPath, sf.relPath);
+                          }}
+                        >
+                          {isDeleting === sf.fullPath ? '...' : '🗑️'}
                         </button>
                       </div>
                     </div>

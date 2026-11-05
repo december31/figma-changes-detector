@@ -435,7 +435,7 @@ export const App: React.FC = () => {
     await loadComponents(activeComponentId);
   };
 
-  const handleDeleteFolder = async (path: string, deleteComponents: boolean) => {
+  const handleDeleteFolder = async (path: string, deleteComponents: boolean = false) => {
     await api.deleteFolder(path, deleteComponents);
     await loadComponents(activeComponentId);
   };
@@ -611,6 +611,7 @@ export const App: React.FC = () => {
             onAddToWatchlist={handleAddToWatchlist}
             folders={folders}
             onCreateFolder={handleCreateFolder}
+            onDeleteFolder={(p) => handleDeleteFolder(p, false)}
             isFetching={isFetchingForm}
             errorMessage={formError}
             infoMessage={formInfo}
@@ -681,6 +682,7 @@ export const App: React.FC = () => {
         component={editingComponent}
         folders={folders}
         onCreateFolder={handleCreateFolder}
+        onDeleteFolder={(p) => handleDeleteFolder(p, false)}
         onClose={() => {
           setIsEditOpen(false);
           setEditingComponent(null);

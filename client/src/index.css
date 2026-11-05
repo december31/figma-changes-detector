@@ -683,6 +683,28 @@ input[readonly]:focus,
   padding: 0.2rem 0.55rem;
 }
 
+.btn-folder-delete {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.45rem;
+  line-height: 1;
+  color: var(--text-muted);
+  border-color: transparent;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-folder-delete:hover:not(:disabled) {
+  color: var(--accent-red);
+  border-color: rgba(255, 114, 98, 0.4);
+  background: rgba(255, 114, 98, 0.15);
+}
+
+.btn-folder-delete:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .folder-picker-empty-note {
   font-size: 0.78rem;
   color: var(--text-muted);

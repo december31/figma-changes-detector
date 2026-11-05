@@ -26,6 +26,7 @@ interface AddComponentCardProps {
   }) => Promise<void>;
   folders?: string[];
   onCreateFolder?: (path: string) => Promise<void>;
+  onDeleteFolder?: (path: string) => Promise<void>;
   isFetching: boolean;
   errorMessage: string | null;
   infoMessage: string | null;
@@ -46,6 +47,7 @@ export const AddComponentCard: React.FC<AddComponentCardProps> = ({
   onAddToWatchlist,
   folders = [],
   onCreateFolder,
+  onDeleteFolder,
   isFetching,
   errorMessage,
   infoMessage,
@@ -287,6 +289,7 @@ export const AddComponentCard: React.FC<AddComponentCardProps> = ({
           setFolderPath(newPath);
         }}
         onCreateFolder={onCreateFolder}
+        onDeleteFolder={onDeleteFolder}
       />
     </div>
   );

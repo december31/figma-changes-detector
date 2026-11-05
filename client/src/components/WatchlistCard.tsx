@@ -772,6 +772,7 @@ export const WatchlistCard: React.FC<WatchlistCardProps> = ({
           setFolderPickerComp((prev) => (prev ? { ...prev, folder_path: newPath } : null));
         }}
         onCreateFolder={onCreateFolder}
+        onDeleteFolder={onDeleteFolder ? (p) => onDeleteFolder(p, false) : undefined}
       />
     </div>
   );

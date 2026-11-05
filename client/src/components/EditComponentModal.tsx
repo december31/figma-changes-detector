@@ -9,6 +9,7 @@ interface EditComponentModalProps {
   component: Component | null;
   folders?: string[];
   onCreateFolder?: (path: string) => Promise<void>;
+  onDeleteFolder?: (path: string) => Promise<void>;
   onClose: () => void;
   onSave: (id: number, payload: UpdateComponentPayload) => Promise<void>;
 }
@@ -18,6 +19,7 @@ export const EditComponentModal: React.FC<EditComponentModalProps> = ({
   component,
   folders = [],
   onCreateFolder,
+  onDeleteFolder,
   onClose,
   onSave
 }) => {
@@ -302,6 +304,7 @@ export const EditComponentModal: React.FC<EditComponentModalProps> = ({
             setFolderPath(newPath);
           }}
           onCreateFolder={onCreateFolder}
+          onDeleteFolder={onDeleteFolder}
         />
       </div>
     </div>
