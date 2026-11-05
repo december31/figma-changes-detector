@@ -684,7 +684,7 @@ input[readonly]:focus,
 }
 
 .btn-folder-delete {
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   padding: 0.2rem 0.45rem;
   line-height: 1;
   color: var(--text-muted);

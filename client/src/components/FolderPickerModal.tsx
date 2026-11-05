@@ -329,7 +329,7 @@ export const FolderPickerModal: React.FC<FolderPickerModalProps> = ({
                             handleDeleteSubfolder(sf.fullPath, sf.relPath);
                           }}
                         >
-                          {isDeleting === sf.fullPath ? '...' : '🗑️'}
+                          {isDeleting === sf.fullPath ? '...' : <>&times;</>}
                         </button>
                       </div>
                     </div>
