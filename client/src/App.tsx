@@ -1,0 +1,645 @@
+// client/src/App.tsx
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  Component,
+  FetchRecord,
+  TokenStatusInfo,
+  TransientStatus,
+  BatchResultItem,
+  BatchSummary,
+  UpdateComponentPayload
+} from './types';
+import * as api from './services/api';
+import { Header } from './components/Header';
+import { AuthCard } from './components/AuthCard';
+import { AddComponentCard } from './components/AddComponentCard';
+import { WatchlistCard } from './components/WatchlistCard';
+import { PreviewCard } from './components/PreviewCard';
+import { CompareModal } from './components/CompareModal';
+import { EditComponentModal } from './components/EditComponentModal';
+import { ZoomModal } from './components/ZoomModal';
+
+export const App: React.FC = () => {
+  // --- Auth State ---
+  const [token, setToken] = useState<string>(() => {
+    return localStorage.getItem('figma_token') || '';
+  });
+  const [saveToLocalStorage, setSaveToLocalStorage] = useState<boolean>(true);
+  const [hasDefaultToken, setHasDefaultToken] = useState<boolean>(false);
+
+  // --- Watchlist & Active Inspection State ---
+  const [components, setComponents] = useState<Component[]>([]);
+  const [activeComponentId, setActiveComponentId] = useState<number | null>(null);
+  const [activeFetch, setActiveFetch] = useState<FetchRecord | null>(null);
+  const [previousFetch, setPreviousFetch] = useState<FetchRecord | null>(null);
+  const [componentHistory, setComponentHistory] = useState<FetchRecord[]>([]);
+  const [transientStatuses, setTransientStatuses] = useState<Map<number, TransientStatus>>(
+    new Map()
+  );
+
+  // --- Form & Banners ---
+  const [isFetchingForm, setIsFetchingForm] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [formInfo, setFormInfo] = useState<string | null>(null);
+  const [formPrefill, setFormPrefill] = useState<{
+    fileKey?: string;
+    nodeId?: string;
+    name?: string;
+    format?: string;
+    scale?: number;
+  }>({});
+
+  // --- Batch Run State ---
+  const [isBatchChecking, setIsBatchChecking] = useState(false);
+  const [batchSummary, setBatchSummary] = useState<BatchSummary | null>(null);
+  const [batchResults, setBatchResults] = useState<BatchResultItem[] | null>(null);
+
+  // --- Modals State ---
+  const [isCompareOpen, setIsCompareOpen] = useState(false);
+  const [compareComponent, setCompareComponent] = useState<Component | null>(null);
+  const [compareCurrentFetch, setCompareCurrentFetch] = useState<FetchRecord | null>(null);
+  const [comparePreviousFetch, setComparePreviousFetch] = useState<FetchRecord | null>(null);
+
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingComponent, setEditingComponent] = useState<Component | null>(null);
+
+  const [isZoomOpen, setIsZoomOpen] = useState(false);
+  const [zoomImageSrc, setZoomImageSrc] = useState<string | null>(null);
+
+  // --- Derived Active Component ---
+  const activeComponent =
+    components.find((c) => c.id === activeComponentId) || null;
+
+  // --- Token Status ---
+  const tokenStatus: TokenStatusInfo = React.useMemo(() => {
+    if (token.trim()) {
+      return {
+        type: 'custom',
+        label: 'Token: Custom (Ready)',
+        className: 'connected',
+        placeholder: 'figd_... (or set FIGMA_ACCESS_TOKEN in .env)'
+      };
+    }
+    if (hasDefaultToken) {
+      return {
+        type: 'default',
+        label: 'Token: .env Configured (Ready)',
+        className: 'connected',
+        placeholder: 'Using token from .env (or enter override here)'
+      };
+    }
+    return {
+      type: 'missing',
+      label: 'Token: Missing',
+      className: 'disconnected',
+      placeholder: 'figd_... (or set FIGMA_ACCESS_TOKEN in .env)'
+    };
+  }, [token, hasDefaultToken]);
+
+  const handleTokenChange = (newToken: string) => {
+    setToken(newToken);
+    if (saveToLocalStorage) {
+      localStorage.setItem('figma_token', newToken.trim());
+    } else {
+      localStorage.removeItem('figma_token');
+    }
+  };
+
+  const handleSaveToLocalStorageChange = (save: boolean) => {
+    setSaveToLocalStorage(save);
+    if (save && token.trim()) {
+      localStorage.setItem('figma_token', token.trim());
+    } else if (!save) {
+      localStorage.removeItem('figma_token');
+    }
+  };
+
+  // --- Initial Config & Watchlist Load ---
+  const loadComponents = useCallback(async (selectId?: number | null) => {
+    try {
+      const list = await api.getComponents();
+      setComponents(list);
+
+      if (selectId) {
+        const target = list.find((c) => c.id === selectId);
+        if (target) {
+          setActiveComponentId(target.id);
+          setActiveFetch(target.latestFetch || null);
+          setPreviousFetch(target.previousFetch || null);
+          setFormPrefill({
+            fileKey: target.file_key,
+            nodeId: target.node_id,
+            name: target.name,
+            format: target.format,
+            scale: target.scale
+          });
+          const historyRes = await api.getComponentHistory(target.id);
+          setComponentHistory(historyRes.history || []);
+        }
+      } else if (list.length > 0) {
+        // Pick first component if none currently selected
+        setActiveComponentId((currentActiveId) => {
+          if (!currentActiveId) {
+            const firstWithFetch = list.find((c) => c.latestFetch) || list[0];
+            setActiveFetch(firstWithFetch.latestFetch || null);
+            setPreviousFetch(firstWithFetch.previousFetch || null);
+            setFormPrefill({
+              fileKey: firstWithFetch.file_key,
+              nodeId: firstWithFetch.node_id,
+              name: firstWithFetch.name,
+              format: firstWithFetch.format,
+              scale: firstWithFetch.scale
+            });
+            api.getComponentHistory(firstWithFetch.id).then((historyRes) => {
+              setComponentHistory(historyRes.history || []);
+            });
+            return firstWithFetch.id;
+          }
+          return currentActiveId;
+        });
+      }
+    } catch (err: unknown) {
+      console.error('Failed to load components:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    api
+      .getAppConfig()
+      .then((config) => {
+        setHasDefaultToken(config.hasDefaultToken);
+      })
+      .catch((err) => {
+        console.warn('Could not check app config:', err);
+      });
+
+    loadComponents();
+  }, [loadComponents]);
+
+  // --- Component Selection ---
+  const handleSelectComponent = async (comp: Component) => {
+    setActiveComponentId(comp.id);
+    setActiveFetch(comp.latestFetch || null);
+    setPreviousFetch(comp.previousFetch || null);
+    setFormPrefill({
+      fileKey: comp.file_key,
+      nodeId: comp.node_id,
+      name: comp.name,
+      format: comp.format,
+      scale: comp.scale
+    });
+    try {
+      const historyRes = await api.getComponentHistory(comp.id);
+      setComponentHistory(historyRes.history || []);
+    } catch (err) {
+      console.error('Failed to fetch history:', err);
+    }
+  };
+
+  // --- Fetch Now via Add Form ---
+  const handleFetchNow = async (formData: {
+    fileKey: string;
+    nodeId: string;
+    name: string;
+    format: string;
+    scale: number;
+    figmaUrl: string;
+  }) => {
+    setFormError(null);
+    setFormInfo(null);
+
+    const activeToken = token.trim();
+    if (!activeToken && !hasDefaultToken) {
+      setFormError(
+        'Please enter your Figma Personal Access Token or set FIGMA_ACCESS_TOKEN in .env'
+      );
+      return;
+    }
+    if (!formData.fileKey || !formData.nodeId) {
+      setFormError('Both File Key and Node ID are required.');
+      return;
+    }
+
+    setIsFetchingForm(true);
+    try {
+      const result = await api.fetchComponentDirect({
+        token: activeToken || undefined,
+        fileKey: formData.fileKey,
+        nodeId: formData.nodeId,
+        name: formData.name,
+        format: formData.format,
+        scale: formData.scale,
+        figmaUrl: formData.figmaUrl
+      });
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to fetch component.');
+      }
+
+      await loadComponents(result.component.id);
+      setActiveComponentId(result.component.id);
+      setActiveFetch(result.currentFetch);
+      setPreviousFetch(result.previousFetch);
+
+      const historyRes = await api.getComponentHistory(result.component.id);
+      setComponentHistory(historyRes.history || []);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setFormError(`Request error: ${msg}`);
+    } finally {
+      setIsFetchingForm(false);
+    }
+  };
+
+  // --- Add to Watchlist via Add Form ---
+  const handleAddToWatchlist = async (formData: {
+    fileKey: string;
+    nodeId: string;
+    name: string;
+    format: string;
+    scale: number;
+    figmaUrl: string;
+  }) => {
+    setFormError(null);
+    setFormInfo(null);
+
+    if (!formData.fileKey || !formData.nodeId) {
+      setFormError(
+        'Please provide both File Key and Node ID (or paste a Figma link) to add to the watchlist.'
+      );
+      return;
+    }
+
+    try {
+      const res = await api.createComponent({
+        name: formData.name,
+        fileKey: formData.fileKey,
+        nodeId: formData.nodeId,
+        format: formData.format,
+        scale: formData.scale,
+        figmaUrl: formData.figmaUrl,
+        fetchNow: false
+      });
+
+      if ('component' in res && res.component) {
+        setFormInfo(
+          `Saved "${res.component.name}" (${res.component.node_id}) to SQLite watchlist.`
+        );
+        await loadComponents(res.component.id);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setFormError(`Error saving component: ${msg}`);
+    }
+  };
+
+  // --- Single Component Fetch from Watchlist ---
+  const handleFetchComponent = async (comp: Component) => {
+    setFormError(null);
+    setFormInfo(null);
+
+    const activeToken = token.trim();
+    if (!activeToken && !hasDefaultToken) {
+      setFormError('Please provide your Figma Access Token first.');
+      return;
+    }
+
+    // Set transient status
+    setTransientStatuses((prev) => {
+      const map = new Map(prev);
+      map.set(comp.id, { status: 'loading' });
+      return map;
+    });
+    setIsFetchingForm(true);
+
+    try {
+      const result = await api.fetchComponentWatchlist(comp.id, activeToken || undefined);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to fetch component.');
+      }
+
+      await loadComponents(comp.id);
+      setActiveComponentId(comp.id);
+      setActiveFetch(result.currentFetch);
+      setPreviousFetch(result.previousFetch);
+
+      const historyRes = await api.getComponentHistory(comp.id);
+      setComponentHistory(historyRes.history || []);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setFormError(`Fetch failed: ${msg}`);
+    } finally {
+      setTransientStatuses((prev) => {
+        const map = new Map(prev);
+        map.delete(comp.id);
+        return map;
+      });
+      setIsFetchingForm(false);
+    }
+  };
+
+  // --- Delete Component ---
+  const handleDeleteComponent = async (comp: Component) => {
+    if (
+      !window.confirm(
+        `Remove "${comp.name}" and its stored snapshots from SQLite & /assets?`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await api.deleteComponent(comp.id);
+      if (activeComponentId === comp.id) {
+        setActiveComponentId(null);
+        setActiveFetch(null);
+        setPreviousFetch(null);
+        setComponentHistory([]);
+      }
+      await loadComponents();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setFormError(`Failed to delete component: ${msg}`);
+    }
+  };
+
+  // --- Open Fullscreen Comparison ---
+  const handleInspectComponent = async (
+    comp: Component,
+    curr?: FetchRecord | null,
+    prev?: FetchRecord | null
+  ) => {
+    await handleSelectComponent(comp);
+    setCompareComponent(comp);
+    setCompareCurrentFetch(curr || comp.latestFetch || null);
+    setComparePreviousFetch(prev || comp.previousFetch || null);
+
+    try {
+      const historyRes = await api.getComponentHistory(comp.id);
+      setComponentHistory(historyRes.history || []);
+    } catch (err) {
+      console.error('Failed to load history for compare:', err);
+    }
+    setIsCompareOpen(true);
+  };
+
+  const handleInspectBatchItem = async (item: BatchResultItem) => {
+    if (!item.component) return;
+    await handleInspectComponent(
+      item.component,
+      item.currentFetch,
+      item.previousFetch || item.component.previousFetch
+    );
+  };
+
+  // --- Edit Component ---
+  const handleOpenEdit = (comp: Component) => {
+    setEditingComponent(comp);
+    setIsEditOpen(true);
+  };
+
+  const handleSaveEdit = async (id: number, payload: UpdateComponentPayload) => {
+    const res = await api.updateComponent(id, payload);
+    if (res.success && res.component) {
+      await loadComponents(res.component.id);
+      setFormPrefill({
+        fileKey: res.component.file_key,
+        nodeId: res.component.node_id,
+        name: res.component.name,
+        format: res.component.format,
+        scale: res.component.scale
+      });
+    }
+  };
+
+  // --- Batch Check All Components ---
+  const handleCheckAll = async () => {
+    setFormError(null);
+    setFormInfo(null);
+
+    const activeToken = token.trim();
+    if (!activeToken && !hasDefaultToken) {
+      setFormError(
+        'Please provide your Figma Access Token (in UI or .env) before running Check All.'
+      );
+      return;
+    }
+
+    if (components.length === 0) {
+      setFormError('Your watchlist is empty. Add at least one component first.');
+      return;
+    }
+
+    setIsBatchChecking(true);
+    setBatchSummary(null);
+
+    // Mark all as queued
+    const initialMap = new Map<number, TransientStatus>();
+    components.forEach((c) => initialMap.set(c.id, { status: 'queued' }));
+    setTransientStatuses(initialMap);
+
+    const results: BatchResultItem[] = [];
+    let changedCount = 0;
+    let unchangedCount = 0;
+    let baselineCount = 0;
+    let errorCount = 0;
+
+    for (const comp of components) {
+      // Mark current as loading
+      setTransientStatuses((prev) => {
+        const next = new Map(prev);
+        next.set(comp.id, { status: 'loading' });
+        return next;
+      });
+
+      try {
+        const res = await api.fetchComponentWatchlist(comp.id, activeToken || undefined);
+        const status = res.currentFetch.change_status;
+        if (status === 'changed') changedCount++;
+        else if (status === 'unchanged') unchangedCount++;
+        else baselineCount++;
+
+        results.push({
+          componentId: comp.id,
+          success: true,
+          component: res.component,
+          currentFetch: res.currentFetch,
+          previousFetch: res.previousFetch
+        });
+      } catch (err: unknown) {
+        errorCount++;
+        const msg = err instanceof Error ? err.message : String(err);
+        results.push({
+          componentId: comp.id,
+          name: comp.name,
+          nodeId: comp.node_id,
+          success: false,
+          error: msg
+        });
+      } finally {
+        setTransientStatuses((prev) => {
+          const next = new Map(prev);
+          next.delete(comp.id);
+          return next;
+        });
+      }
+    }
+
+    setTransientStatuses(new Map());
+
+    const summary: BatchSummary = {
+      total: components.length,
+      changed: changedCount,
+      unchanged: unchangedCount,
+      baseline: baselineCount,
+      errors: errorCount
+    };
+    setBatchSummary(summary);
+    setBatchResults(results);
+
+    // Pick first changed or first success
+    const firstChanged = results.find(
+      (r) => r.success && r.currentFetch?.change_status === 'changed'
+    );
+    const firstSuccess = results.find((r) => r.success);
+    const targetSelect = firstChanged
+      ? firstChanged.componentId
+      : firstSuccess
+      ? firstSuccess.componentId
+      : activeComponentId;
+
+    await loadComponents(targetSelect);
+    setIsBatchChecking(false);
+  };
+
+  // --- Compare Modal History Selection ---
+  const handleSelectHistoryFetchInCompare = (
+    fetchRecord: FetchRecord,
+    prevRecord: FetchRecord | null
+  ) => {
+    setCompareCurrentFetch(fetchRecord);
+    setComparePreviousFetch(prevRecord);
+    setActiveFetch(fetchRecord);
+    setPreviousFetch(prevRecord);
+  };
+
+  // --- Zoom Modal Handler ---
+  const handleOpenZoom = (src: string) => {
+    setZoomImageSrc(src);
+    setIsZoomOpen(true);
+  };
+
+  return (
+    <div className="app-container">
+      {/* Header */}
+      <Header tokenStatus={tokenStatus} />
+
+      {/* Main Grid */}
+      <main className="main-grid">
+        {/* Left Column: Controls & Watchlist */}
+        <section className="panel control-panel">
+          {/* 1. Auth Card */}
+          <AuthCard
+            token={token}
+            onTokenChange={handleTokenChange}
+            saveToLocalStorage={saveToLocalStorage}
+            onSaveToLocalStorageChange={handleSaveToLocalStorageChange}
+            tokenStatus={tokenStatus}
+          />
+
+          {/* 2. Add / Fetch Component Card */}
+          <AddComponentCard
+            onFetchNow={handleFetchNow}
+            onAddToWatchlist={handleAddToWatchlist}
+            isFetching={isFetchingForm}
+            errorMessage={formError}
+            infoMessage={formInfo}
+            onClearBanners={() => {
+              setFormError(null);
+              setFormInfo(null);
+            }}
+            initialValues={formPrefill}
+          />
+
+          {/* 3. Watchlist Card */}
+          <WatchlistCard
+            components={components}
+            activeComponentId={activeComponentId}
+            transientStatuses={transientStatuses}
+            isBatchChecking={isBatchChecking}
+            batchSummary={batchSummary}
+            batchResults={batchResults}
+            onClearBatchResults={() => setBatchResults(null)}
+            onCheckAll={handleCheckAll}
+            onSelectComponent={handleSelectComponent}
+            onInspectComponent={(comp) => handleInspectComponent(comp)}
+            onFetchComponent={handleFetchComponent}
+            onEditComponent={handleOpenEdit}
+            onDeleteComponent={handleDeleteComponent}
+            onInspectBatchItem={handleInspectBatchItem}
+          />
+        </section>
+
+        {/* Right Column: Component Display, Auto-Diff & Fetch History */}
+        <section className="panel display-panel">
+          <PreviewCard
+            component={activeComponent}
+            currentFetch={activeFetch}
+            isLoading={isFetchingForm && !isBatchChecking}
+            onOpenCompare={() => {
+              if (activeComponent) {
+                handleInspectComponent(activeComponent, activeFetch, previousFetch);
+              }
+            }}
+            onRefetchCurrent={() => {
+              if (activeComponent) {
+                handleFetchComponent(activeComponent);
+              }
+            }}
+            onEditCurrent={() => {
+              if (activeComponent) {
+                handleOpenEdit(activeComponent);
+              }
+            }}
+            onOpenZoom={handleOpenZoom}
+          />
+        </section>
+      </main>
+
+      {/* Fullscreen Compare Modal */}
+      <CompareModal
+        isOpen={isCompareOpen}
+        onClose={() => setIsCompareOpen(false)}
+        component={compareComponent}
+        currentFetch={compareCurrentFetch}
+        previousFetch={comparePreviousFetch}
+        history={componentHistory}
+        onSelectHistoryFetch={handleSelectHistoryFetchInCompare}
+        onOpenZoom={handleOpenZoom}
+      />
+
+      {/* Edit Component Modal */}
+      <EditComponentModal
+        isOpen={isEditOpen}
+        component={editingComponent}
+        onClose={() => {
+          setIsEditOpen(false);
+          setEditingComponent(null);
+        }}
+        onSave={handleSaveEdit}
+      />
+
+      {/* Zoom Modal */}
+      <ZoomModal
+        isOpen={isZoomOpen}
+        imageSrc={zoomImageSrc}
+        onClose={() => {
+          setIsZoomOpen(false);
+          setZoomImageSrc(null);
+        }}
+      />
+    </div>
+  );
+};
+
+export default App;

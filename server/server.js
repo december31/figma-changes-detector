@@ -2,7 +2,9 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
-require('dotenv').config();
+// Load environment variables from server/ or project root
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const componentRoutes = require('./src/routes/componentRoutes');
 const figmaRoutes = require('./src/routes/figmaRoutes');
@@ -25,12 +27,28 @@ fs.mkdirSync(diffsDir, { recursive: true });
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+
+// Assets static serving
 app.use('/assets', express.static(assetsDir));
 
 // Mount modular feature routes
 app.use('/api/components', componentRoutes);
 app.use('/api', figmaRoutes);
+
+// Frontend static serving: serve client/dist when built, fallback to server/public/
+const clientDist = path.join(__dirname, '..', 'client', 'dist');
+if (fs.existsSync(clientDist)) {
+  app.use(express.static(clientDist));
+  app.use((req, res, next) => {
+    if (req.method !== 'GET') return next();
+    if (req.path.startsWith('/api') || req.path.startsWith('/assets')) {
+      return next();
+    }
+    res.sendFile(path.join(clientDist, 'index.html'));
+  });
+} else {
+  app.use(express.static(path.join(__dirname, 'public')));
+}
 
 if (require.main === module) {
   app.listen(PORT, () => {
