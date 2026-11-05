@@ -229,9 +229,6 @@ export function renderWatchlist() {
       ? `<img src="${comp.latestFetch.image_path}" class="watchlist-thumb" alt="${comp.name}" />`
       : `<div class="watchlist-thumb" style="display:flex;align-items:center;justify-content:center;font-size:1.1rem;color:#5c6472;">&#128444;</div>`;
 
-    const folderText = comp.folder_path || comp.file_name || 'Root';
-    const folderHtml = `<span class="watchlist-folder-pill" title="Folder: ${folderText}">📁 ${folderText}</span>`;
-
     item.innerHTML = `
       ${thumbHtml}
       <div class="watchlist-info">
@@ -239,7 +236,6 @@ export function renderWatchlist() {
           <span class="watchlist-name" title="${comp.name}">${comp.name}</span>
         </div>
         <div class="watchlist-tag-row">
-          ${folderHtml}
           ${pillHtml}
         </div>
       </div>

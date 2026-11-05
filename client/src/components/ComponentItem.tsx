@@ -25,8 +25,7 @@ export const ComponentItem: React.FC<ComponentItemProps> = ({
   onInspect,
   onFetch,
   onEdit,
-  onDelete,
-  onChangeFolder
+  onDelete
 }) => {
   const renderStatusPill = () => {
     if (transientStatus?.status === 'loading') {
@@ -46,8 +45,6 @@ export const ComponentItem: React.FC<ComponentItemProps> = ({
     const statusMeta = getStatusPillMeta(component.latestFetch);
     return <span className={`change-pill ${statusMeta.cls}`}>{statusMeta.text}</span>;
   };
-
-  const folderDisplayName = component.folder_path || component.file_name || 'Root';
 
   return (
     <div
@@ -84,26 +81,6 @@ export const ComponentItem: React.FC<ComponentItemProps> = ({
           </span>
         </div>
         <div className="watchlist-tag-row">
-          {onChangeFolder ? (
-            <button
-              type="button"
-              className="watchlist-folder-pill"
-              title={`Folder: ${folderDisplayName} (Click to change folder)`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onChangeFolder(component);
-              }}
-            >
-              📁 {folderDisplayName}
-            </button>
-          ) : (
-            <span
-              className="watchlist-folder-pill"
-              title={`Folder: ${folderDisplayName}`}
-            >
-              📁 {folderDisplayName}
-            </span>
-          )}
           {renderStatusPill()}
         </div>
       </div>
