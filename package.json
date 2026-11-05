@@ -4,6 +4,7 @@
   "description": "Figma Changes Detector - Monorepo with React TSX client and Express server",
   "main": "server/server.js",
   "scripts": {
+    "setup": "npm --prefix server install && npm --prefix client install",
     "prestart": "npm run build",
     "start": "node server/server.js",
     "dev": "npx --yes concurrently -n \"server,client\" -c \"blue,green\" \"npm run dev:server\" \"npm run dev:client\"",
@@ -12,6 +13,10 @@
     "build:client": "npm --prefix client run build",
     "build": "npm run build:client"
   },
+  "workspaces": [
+    "server",
+    "client"
+  ],
   "keywords": [],
   "author": "",
   "license": "ISC"
