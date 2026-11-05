@@ -91,7 +91,7 @@ export const ComponentItem: React.FC<ComponentItemProps> = ({
         <button
           type="button"
           className="btn-mini inspect-comp-btn"
-          title="Inspect & Compare in Fullscreen"
+          title="Inspect & Compare"
           onClick={(e) => {
             e.stopPropagation();
             onInspect(component);

@@ -179,7 +179,7 @@ export const PreviewCard: React.FC<PreviewCardProps> = ({
               style={{ flex: 'initial' }}
               onClick={onOpenCompare}
             >
-              ⛶ Inspect &amp; Compare (Full Screen)
+              ⛶ Inspect &amp; Compare
             </button>
             <button
               type="button"

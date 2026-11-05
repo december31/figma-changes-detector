@@ -48,6 +48,13 @@ if (fs.existsSync(clientDist)) {
   });
 } else {
   app.use(express.static(path.join(__dirname, 'public')));
+  app.use((req, res, next) => {
+    if (req.method !== 'GET') return next();
+    if (req.path.startsWith('/api') || req.path.startsWith('/assets')) {
+      return next();
+    }
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  });
 }
 
 if (require.main === module) {

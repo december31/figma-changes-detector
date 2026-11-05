@@ -15,11 +15,47 @@ import { AuthCard } from './components/AuthCard';
 import { AddComponentCard } from './components/AddComponentCard';
 import { WatchlistCard } from './components/WatchlistCard';
 import { PreviewCard } from './components/PreviewCard';
-import { CompareModal } from './components/CompareModal';
+import { InspectPage } from './components/InspectPage';
 import { EditComponentModal } from './components/EditComponentModal';
 import { ZoomModal } from './components/ZoomModal';
 
+function parseRoute(pathname: string): { page: 'home' | 'inspect'; componentId?: number } {
+  const match = pathname.match(/^\/inspect\/(\d+)/);
+  if (match) {
+    return { page: 'inspect', componentId: parseInt(match[1], 10) };
+  }
+  return { page: 'home' };
+}
+
 export const App: React.FC = () => {
+  // --- Routing State ---
+  const [route, setRoute] = useState<{ page: 'home' | 'inspect'; componentId?: number }>(() =>
+    parseRoute(window.location.pathname)
+  );
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setRoute(parseRoute(window.location.pathname));
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const navigateToInspect = (componentId: number) => {
+    const newPath = `/inspect/${componentId}`;
+    if (window.location.pathname !== newPath) {
+      window.history.pushState({}, '', newPath);
+    }
+    setRoute({ page: 'inspect', componentId });
+  };
+
+  const navigateToHome = () => {
+    if (window.location.pathname !== '/') {
+      window.history.pushState({}, '', '/');
+    }
+    setRoute({ page: 'home' });
+    loadComponents();
+  };
   // --- Auth State ---
   const [token, setToken] = useState<string>(() => {
     return localStorage.getItem('figma_token') || '';
@@ -31,8 +67,6 @@ export const App: React.FC = () => {
   const [components, setComponents] = useState<Component[]>([]);
   const [activeComponentId, setActiveComponentId] = useState<number | null>(null);
   const [activeFetch, setActiveFetch] = useState<FetchRecord | null>(null);
-  const [previousFetch, setPreviousFetch] = useState<FetchRecord | null>(null);
-  const [componentHistory, setComponentHistory] = useState<FetchRecord[]>([]);
   const [transientStatuses, setTransientStatuses] = useState<Map<number, TransientStatus>>(
     new Map()
   );
@@ -55,11 +89,6 @@ export const App: React.FC = () => {
   const [batchResults, setBatchResults] = useState<BatchResultItem[] | null>(null);
 
   // --- Modals State ---
-  const [isCompareOpen, setIsCompareOpen] = useState(false);
-  const [compareComponent, setCompareComponent] = useState<Component | null>(null);
-  const [compareCurrentFetch, setCompareCurrentFetch] = useState<FetchRecord | null>(null);
-  const [comparePreviousFetch, setComparePreviousFetch] = useState<FetchRecord | null>(null);
-
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingComponent, setEditingComponent] = useState<Component | null>(null);
 
@@ -125,7 +154,6 @@ export const App: React.FC = () => {
         if (target) {
           setActiveComponentId(target.id);
           setActiveFetch(target.latestFetch || null);
-          setPreviousFetch(target.previousFetch || null);
           setFormPrefill({
             fileKey: target.file_key,
             nodeId: target.node_id,
@@ -133,8 +161,6 @@ export const App: React.FC = () => {
             format: target.format,
             scale: target.scale
           });
-          const historyRes = await api.getComponentHistory(target.id);
-          setComponentHistory(historyRes.history || []);
         }
       } else if (list.length > 0) {
         // Pick first component if none currently selected
@@ -142,16 +168,12 @@ export const App: React.FC = () => {
           if (!currentActiveId) {
             const firstWithFetch = list.find((c) => c.latestFetch) || list[0];
             setActiveFetch(firstWithFetch.latestFetch || null);
-            setPreviousFetch(firstWithFetch.previousFetch || null);
             setFormPrefill({
               fileKey: firstWithFetch.file_key,
               nodeId: firstWithFetch.node_id,
               name: firstWithFetch.name,
               format: firstWithFetch.format,
               scale: firstWithFetch.scale
-            });
-            api.getComponentHistory(firstWithFetch.id).then((historyRes) => {
-              setComponentHistory(historyRes.history || []);
             });
             return firstWithFetch.id;
           }
@@ -180,7 +202,6 @@ export const App: React.FC = () => {
   const handleSelectComponent = async (comp: Component) => {
     setActiveComponentId(comp.id);
     setActiveFetch(comp.latestFetch || null);
-    setPreviousFetch(comp.previousFetch || null);
     setFormPrefill({
       fileKey: comp.file_key,
       nodeId: comp.node_id,
@@ -188,12 +209,6 @@ export const App: React.FC = () => {
       format: comp.format,
       scale: comp.scale
     });
-    try {
-      const historyRes = await api.getComponentHistory(comp.id);
-      setComponentHistory(historyRes.history || []);
-    } catch (err) {
-      console.error('Failed to fetch history:', err);
-    }
   };
 
   // --- Fetch Now via Add Form ---
@@ -239,10 +254,6 @@ export const App: React.FC = () => {
       await loadComponents(result.component.id);
       setActiveComponentId(result.component.id);
       setActiveFetch(result.currentFetch);
-      setPreviousFetch(result.previousFetch);
-
-      const historyRes = await api.getComponentHistory(result.component.id);
-      setComponentHistory(historyRes.history || []);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       setFormError(`Request error: ${msg}`);
@@ -321,10 +332,6 @@ export const App: React.FC = () => {
       await loadComponents(comp.id);
       setActiveComponentId(comp.id);
       setActiveFetch(result.currentFetch);
-      setPreviousFetch(result.previousFetch);
-
-      const historyRes = await api.getComponentHistory(comp.id);
-      setComponentHistory(historyRes.history || []);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       setFormError(`Fetch failed: ${msg}`);
@@ -353,8 +360,6 @@ export const App: React.FC = () => {
       if (activeComponentId === comp.id) {
         setActiveComponentId(null);
         setActiveFetch(null);
-        setPreviousFetch(null);
-        setComponentHistory([]);
       }
       await loadComponents();
     } catch (err: unknown) {
@@ -363,33 +368,16 @@ export const App: React.FC = () => {
     }
   };
 
-  // --- Open Fullscreen Comparison ---
-  const handleInspectComponent = async (
-    comp: Component,
-    curr?: FetchRecord | null,
-    prev?: FetchRecord | null
-  ) => {
-    await handleSelectComponent(comp);
-    setCompareComponent(comp);
-    setCompareCurrentFetch(curr || comp.latestFetch || null);
-    setComparePreviousFetch(prev || comp.previousFetch || null);
-
-    try {
-      const historyRes = await api.getComponentHistory(comp.id);
-      setComponentHistory(historyRes.history || []);
-    } catch (err) {
-      console.error('Failed to load history for compare:', err);
-    }
-    setIsCompareOpen(true);
+  // --- Inspect Navigation ---
+  const handleInspectComponent = (comp: Component) => {
+    handleSelectComponent(comp);
+    navigateToInspect(comp.id);
   };
 
-  const handleInspectBatchItem = async (item: BatchResultItem) => {
-    if (!item.component) return;
-    await handleInspectComponent(
-      item.component,
-      item.currentFetch,
-      item.previousFetch || item.component.previousFetch
-    );
+  const handleInspectBatchItem = (item: BatchResultItem) => {
+    if (item.componentId) {
+      navigateToInspect(item.componentId);
+    }
   };
 
   // --- Edit Component ---
@@ -512,22 +500,35 @@ export const App: React.FC = () => {
     setIsBatchChecking(false);
   };
 
-  // --- Compare Modal History Selection ---
-  const handleSelectHistoryFetchInCompare = (
-    fetchRecord: FetchRecord,
-    prevRecord: FetchRecord | null
-  ) => {
-    setCompareCurrentFetch(fetchRecord);
-    setComparePreviousFetch(prevRecord);
-    setActiveFetch(fetchRecord);
-    setPreviousFetch(prevRecord);
-  };
-
   // --- Zoom Modal Handler ---
   const handleOpenZoom = (src: string) => {
     setZoomImageSrc(src);
     setIsZoomOpen(true);
   };
+
+  // If on /inspect/:componentId page, render the standalone Inspect Page
+  if (route.page === 'inspect' && route.componentId) {
+    return (
+      <div className="app-container">
+        <InspectPage
+          componentId={route.componentId}
+          onBack={navigateToHome}
+          token={token}
+          hasDefaultToken={hasDefaultToken}
+          onOpenZoom={handleOpenZoom}
+        />
+        {/* Lightbox Zoom Modal */}
+        <ZoomModal
+          isOpen={isZoomOpen}
+          imageSrc={zoomImageSrc}
+          onClose={() => {
+            setIsZoomOpen(false);
+            setZoomImageSrc(null);
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="app-container">
@@ -588,7 +589,7 @@ export const App: React.FC = () => {
             isLoading={isFetchingForm && !isBatchChecking}
             onOpenCompare={() => {
               if (activeComponent) {
-                handleInspectComponent(activeComponent, activeFetch, previousFetch);
+                navigateToInspect(activeComponent.id);
               }
             }}
             onRefetchCurrent={() => {
@@ -605,18 +606,6 @@ export const App: React.FC = () => {
           />
         </section>
       </main>
-
-      {/* Fullscreen Compare Modal */}
-      <CompareModal
-        isOpen={isCompareOpen}
-        onClose={() => setIsCompareOpen(false)}
-        component={compareComponent}
-        currentFetch={compareCurrentFetch}
-        previousFetch={comparePreviousFetch}
-        history={componentHistory}
-        onSelectHistoryFetch={handleSelectHistoryFetchInCompare}
-        onOpenZoom={handleOpenZoom}
-      />
 
       {/* Edit Component Modal */}
       <EditComponentModal
