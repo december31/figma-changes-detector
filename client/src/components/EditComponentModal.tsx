@@ -1,7 +1,7 @@
 // client/src/components/EditComponentModal.tsx
 import React, { useState, useEffect } from 'react';
 import { Component, UpdateComponentPayload } from '../types';
-import { parseFigmaUrl } from '../utils';
+import { parseFigmaUrl, resolveSemiRootFolder } from '../utils';
 
 interface EditComponentModalProps {
   isOpen: boolean;
@@ -64,6 +64,9 @@ export const EditComponentModal: React.FC<EditComponentModalProps> = ({
     if (parsed) {
       if (parsed.fileKey) setFileKey(parsed.fileKey);
       if (parsed.nodeId) setNodeId(parsed.nodeId);
+      if (parsed.fileName) {
+        setFolderPath((prev) => resolveSemiRootFolder(parsed.fileName, folders, prev));
+      }
       setErrorBanner(null);
     }
   };

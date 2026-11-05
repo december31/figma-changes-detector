@@ -10,7 +10,9 @@ const {
   getAllFolders,
   createFolder,
   renameFolder,
-  deleteFolder
+  deleteFolder,
+  resolveSemiRootFolder,
+  parseFigmaUrl
 } = require('../repositories/componentRepository');
 const { executeComponentFetch, normalizeNodeId } = require('../services/figmaService');
 
@@ -102,14 +104,21 @@ router.post('/', async (req, res) => {
       return res.json({ success: true, ...result });
     }
 
+    const parsedFromUrl = figmaUrl ? parseFigmaUrl(figmaUrl) : null;
+    const fileTitle = (parsedFromUrl && parsedFromUrl.fileName) || null;
+    const resolvedFolder = fileTitle
+      ? resolveSemiRootFolder(fileTitle, getAllFolders(), folderPath)
+      : folderPath;
+
     const component = upsertComponent({
       name: (name && name.trim()) || `Component ${cleanNodeId}`,
       fileKey: cleanFileKey,
+      fileName: fileTitle || 'Figma Document',
       nodeId: cleanNodeId,
       format,
       scale,
       figmaUrl,
-      folderPath
+      folderPath: resolvedFolder
     });
 
     return res.json({ success: true, component });

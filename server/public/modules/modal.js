@@ -1,7 +1,7 @@
 // public/modules/modal.js
 // Edit Component Modal Controller
 
-import { parseFigmaUrl } from './utils.js';
+import { parseFigmaUrl, resolveSemiRootFolder } from './utils.js';
 
 let currentEditingId = null;
 let onSaveCallback = null;
@@ -39,6 +39,9 @@ export function initEditModal({ onSave }) {
       if (parsed) {
         if (parsed.fileKey && editFileKey) editFileKey.value = parsed.fileKey;
         if (parsed.nodeId && editNodeId) editNodeId.value = parsed.nodeId;
+        if (parsed.fileName && editFolderPath) {
+          editFolderPath.value = resolveSemiRootFolder(parsed.fileName, [], editFolderPath.value);
+        }
         if (editErrorBanner) editErrorBanner.classList.add('hidden');
       }
     });

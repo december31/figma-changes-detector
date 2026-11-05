@@ -6,7 +6,7 @@ import { initInspector } from './modules/inspector.js';
 import { initDiffViewer } from './modules/diffViewer.js';
 import { initEditModal } from './modules/modal.js';
 import { initWatchlist, loadWatchlist } from './modules/watchlist.js';
-import { parseFigmaUrl, hideBanners } from './modules/utils.js';
+import { parseFigmaUrl, resolveSemiRootFolder, hideBanners } from './modules/utils.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   // 1. Initialize Auth
@@ -46,6 +46,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const figmaUrlInput = document.getElementById('figmaUrl');
   const fileKeyInput = document.getElementById('fileKey');
   const nodeIdInput = document.getElementById('nodeId');
+  const compFolderPathInput = document.getElementById('compFolderPath');
 
   if (figmaUrlInput) {
     figmaUrlInput.addEventListener('input', (e) => {
@@ -53,6 +54,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (parsed) {
         if (parsed.fileKey && fileKeyInput) fileKeyInput.value = parsed.fileKey;
         if (parsed.nodeId && nodeIdInput) nodeIdInput.value = parsed.nodeId;
+        if (parsed.fileName && compFolderPathInput) {
+          compFolderPathInput.value = resolveSemiRootFolder(parsed.fileName, [], compFolderPathInput.value);
+        }
         hideBanners();
       }
     });

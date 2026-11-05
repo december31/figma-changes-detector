@@ -110,10 +110,78 @@ function createFolder(pathStr) {
   const norm = normalizeFolderPath(pathStr);
   if (!norm) throw new Error('Folder path cannot be empty.');
   const now = new Date().toISOString();
-  db.prepare(`
-    INSERT OR IGNORE INTO folders (path, created_at) VALUES (?, ?)
-  `).run(norm, now);
+  const parts = norm.split('/');
+  let curr = '';
+  const insertStmt = db.prepare(`INSERT OR IGNORE INTO folders (path, created_at) VALUES (?, ?)`);
+  for (const part of parts) {
+    curr = curr ? `${curr}/${part}` : part;
+    insertStmt.run(curr, now);
+  }
   return { path: norm };
+}
+
+function resolveSemiRootFolder(fileName, existingFolders = [], currentSubfolder = '') {
+  if (!fileName || !fileName.trim()) return currentSubfolder ? normalizeFolderPath(currentSubfolder) : '';
+  const cleanFileName = fileName.trim();
+
+  // Find if a root folder already exists matching this file name (case-insensitive)
+  const existingRoot = existingFolders.find(
+    (f) => f.split('/')[0].toLowerCase() === cleanFileName.toLowerCase()
+  );
+
+  const rootName = existingRoot ? existingRoot.split('/')[0] : cleanFileName;
+
+  if (!currentSubfolder || !currentSubfolder.trim()) {
+    return rootName;
+  }
+
+  const cleanSub = normalizeFolderPath(currentSubfolder);
+  if (!cleanSub) return rootName;
+
+  // If currentSubfolder already starts with rootName, return as-is
+  if (cleanSub.toLowerCase() === rootName.toLowerCase()) {
+    return rootName;
+  }
+  if (cleanSub.toLowerCase().startsWith(rootName.toLowerCase() + '/')) {
+    return cleanSub;
+  }
+
+  return `${rootName}/${cleanSub}`;
+}
+
+function parseFigmaUrl(urlStr) {
+  if (!urlStr) return null;
+  try {
+    const url = new URL(urlStr.trim());
+    const pathMatch = url.pathname.match(/\/(file|design|proto|board)\/([a-zA-Z0-9_-]+)(?:\/([^/?#]+))?/);
+    const fileKey = pathMatch ? pathMatch[2] : null;
+    let fileName = null;
+    if (pathMatch && pathMatch[3]) {
+      fileName = decodeURIComponent(pathMatch[3]).replace(/[-_]+/g, ' ').trim();
+    }
+    let nodeId = url.searchParams.get('node-id');
+    if (nodeId) {
+      nodeId = decodeURIComponent(nodeId).replace(/-/g, ':');
+    }
+    if (fileKey || nodeId) {
+      return { fileKey, nodeId, fileName };
+    }
+  } catch (e) {
+    const rawFileMatch = urlStr.match(/\/(file|design|proto|board)\/([a-zA-Z0-9_-]+)(?:\/([^/?#]+))?/);
+    const rawNodeMatch = urlStr.match(/node-id=([^&]+)/);
+    let fileName = null;
+    if (rawFileMatch && rawFileMatch[3]) {
+      fileName = decodeURIComponent(rawFileMatch[3]).replace(/[-_]+/g, ' ').trim();
+    }
+    if (rawFileMatch || rawNodeMatch) {
+      return {
+        fileKey: rawFileMatch ? rawFileMatch[2] : null,
+        nodeId: rawNodeMatch ? decodeURIComponent(rawNodeMatch[1]).replace(/-/g, ':') : null,
+        fileName
+      };
+    }
+  }
+  return null;
 }
 
 function renameFolder(oldPath, newPath) {
@@ -221,6 +289,11 @@ function getComponentByFileAndNode(fileKey, nodeId) {
 function upsertComponent({ name, fileKey, fileName, nodeId, nodeType, format = 'png', scale = 2, figmaUrl = '', folderPath }) {
   const existing = getComponentByFileAndNode(fileKey, nodeId);
   const normalizedFolder = folderPath !== undefined ? normalizeFolderPath(folderPath) : undefined;
+  if (normalizedFolder) {
+    try {
+      createFolder(normalizedFolder);
+    } catch (e) {}
+  }
   if (existing) {
     db.prepare(`
       UPDATE tracked_components
@@ -281,6 +354,11 @@ function updateComponent(id, { name, fileKey, fileName, nodeId, nodeType, format
   const newScale = scale !== undefined ? Number(scale) : existing.scale;
   const newFigmaUrl = figmaUrl !== undefined ? figmaUrl : existing.figma_url;
   const newFolderPath = folderPath !== undefined ? normalizeFolderPath(folderPath) : (existing.folder_path || '');
+  if (newFolderPath) {
+    try {
+      createFolder(newFolderPath);
+    } catch (e) {}
+  }
 
   db.prepare(`
     UPDATE tracked_components
@@ -401,5 +479,7 @@ module.exports = {
   getAllFolders,
   createFolder,
   renameFolder,
-  deleteFolder
+  deleteFolder,
+  resolveSemiRootFolder,
+  parseFigmaUrl
 };

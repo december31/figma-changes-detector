@@ -1,6 +1,6 @@
 // client/src/components/AddComponentCard.tsx
 import React, { useState } from 'react';
-import { parseFigmaUrl } from '../utils';
+import { parseFigmaUrl, resolveSemiRootFolder } from '../utils';
 
 interface AddComponentCardProps {
   onFetchNow: (formData: {
@@ -73,6 +73,9 @@ export const AddComponentCard: React.FC<AddComponentCardProps> = ({
     if (parsed) {
       if (parsed.fileKey) setFileKey(parsed.fileKey);
       if (parsed.nodeId) setNodeId(parsed.nodeId);
+      if (parsed.fileName) {
+        setFolderPath((prev) => resolveSemiRootFolder(parsed.fileName, folders, prev));
+      }
       onClearBanners();
     }
   };

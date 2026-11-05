@@ -3,7 +3,10 @@ const fs = require('fs');
 const {
   upsertComponent,
   getLatestFetchForComponent,
-  insertFetchRecord
+  insertFetchRecord,
+  resolveSemiRootFolder,
+  parseFigmaUrl,
+  getAllFolders
 } = require('../repositories/componentRepository');
 const { compareWithPreviousFetch } = require('./diffService');
 
@@ -118,6 +121,13 @@ async function executeComponentFetch({ token, fileKey, nodeId, format = 'png', s
     customName
   });
 
+  // Resolve semi-root folder: the Figma document name
+  const docFileName = (nodeMetadata.fileName && nodeMetadata.fileName !== 'Figma Document')
+    ? nodeMetadata.fileName
+    : (parseFigmaUrl(figmaUrl)?.fileName || nodeMetadata.fileName || 'Figma Document');
+
+  const resolvedFolder = resolveSemiRootFolder(docFileName, getAllFolders(), folderPath);
+
   // 3. Upsert component record
   const componentRecord = upsertComponent({
     name: nodeMetadata.nodeName,
@@ -128,7 +138,7 @@ async function executeComponentFetch({ token, fileKey, nodeId, format = 'png', s
     format: validFormat,
     scale: validScale,
     figmaUrl,
-    folderPath
+    folderPath: resolvedFolder
   });
 
   // 4. Retrieve previous fetch before storing current
