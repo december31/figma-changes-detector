@@ -220,6 +220,15 @@ function deleteFolder(pathStr, deleteComponents = false) {
   const norm = normalizeFolderPath(pathStr);
   if (!norm) throw new Error('Folder path is required.');
 
+  const isRoot = !norm.includes('/');
+  const matchesFileName = db.prepare(`
+    SELECT COUNT(*) as count FROM tracked_components WHERE LOWER(file_name) = LOWER(?)
+  `).get(norm)?.count > 0;
+
+  if (isRoot || matchesFileName) {
+    throw new Error(`The root folder "${norm}" (Figma file name) cannot be deleted.`);
+  }
+
   if (deleteComponents) {
     const comps = db.prepare(`
       SELECT id FROM tracked_components WHERE folder_path = ? OR folder_path LIKE ? || '/%'

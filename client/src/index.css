@@ -452,6 +452,7 @@ input[readonly]:focus,
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex-shrink: 1;
 }
 
 .watchlist-folder-pill:hover {
@@ -1370,6 +1371,7 @@ input[readonly]:focus,
 .watchlist-tag-row {
   display: flex;
   align-items: center;
+  gap: 0.4rem;
   margin-top: 1px;
 }
 

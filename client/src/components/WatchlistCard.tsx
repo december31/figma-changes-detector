@@ -72,6 +72,32 @@ export const WatchlistCard: React.FC<WatchlistCardProps> = ({
     return buildComponentTree(components, folders);
   }, [components, folders]);
 
+  // Set of canonical root folders (Figma file names)
+  const rootFolderNames = useMemo(() => {
+    const names = new Set<string>();
+    components.forEach((c) => {
+      if (c.file_name && c.file_name.trim()) {
+        names.add(c.file_name.trim().toLowerCase());
+      }
+      if (c.folder_path && c.folder_path.trim()) {
+        const rootSegment = c.folder_path.trim().split('/')[0].toLowerCase();
+        if (rootSegment) names.add(rootSegment);
+      }
+    });
+    return names;
+  }, [components]);
+
+  const isPathRootFolder = (path: string) => {
+    const clean = path.trim();
+    if (!clean) return false;
+    if (!clean.includes('/')) return true;
+    const firstSegment = clean.split('/')[0].toLowerCase();
+    if (clean.toLowerCase() === firstSegment || rootFolderNames.has(clean.toLowerCase())) {
+      return true;
+    }
+    return false;
+  };
+
   // Apply search filtering
   const { tree: displayTree } = useMemo(() => {
     return filterTree(rawTree, searchQuery);
@@ -114,6 +140,7 @@ export const WatchlistCard: React.FC<WatchlistCardProps> = ({
   };
 
   const handleOpenDelete = (path: string) => {
+    if (isPathRootFolder(path)) return;
     setDeletingFolder(path);
     setDeleteWithComponents(false);
     setModalError(null);
@@ -162,6 +189,10 @@ export const WatchlistCard: React.FC<WatchlistCardProps> = ({
   const handleDeleteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!deletingFolder || !onDeleteFolder) return;
+    if (isPathRootFolder(deletingFolder)) {
+      setModalError('The root folder for this Figma file cannot be deleted.');
+      return;
+    }
     setIsSubmittingModal(true);
     setModalError(null);
     try {
@@ -179,6 +210,7 @@ export const WatchlistCard: React.FC<WatchlistCardProps> = ({
     const isSearching = searchQuery.trim().length > 0;
     // When searching, matching folders stay expanded automatically
     const isCollapsed = isSearching ? false : collapsedFolders.has(node.path);
+    const isRootFolder = node.depth === 0 || isPathRootFolder(node.path);
 
     return (
       <div key={node.path} className="folder-tree-node">
@@ -256,14 +288,16 @@ export const WatchlistCard: React.FC<WatchlistCardProps> = ({
               ✎
             </button>
 
-            <button
-              type="button"
-              className="btn-mini folder-action-btn delete-btn"
-              title="Delete folder"
-              onClick={() => handleOpenDelete(node.path)}
-            >
-              &times;
-            </button>
+            {!isRootFolder && (
+              <button
+                type="button"
+                className="btn-mini folder-action-btn delete-btn"
+                title="Delete folder"
+                onClick={() => handleOpenDelete(node.path)}
+              >
+                &times;
+              </button>
+            )}
           </div>
         </div>
 
@@ -488,36 +522,26 @@ export const WatchlistCard: React.FC<WatchlistCardProps> = ({
           )}
         </div>
 
-        <div className="watchlist-tools-row">
-          <button
-            type="button"
-            className="btn-mini btn-toolbar"
-            title="Create a new root folder or path"
-            onClick={() => handleOpenCreate('')}
-          >
-            📁+ New Folder
-          </button>
-          {hasAnyFolders && (
-            <>
-              <button
-                type="button"
-                className="btn-mini btn-toolbar"
-                title="Expand all folders"
-                onClick={expandAll}
-              >
-                ⊞ Expand
-              </button>
-              <button
-                type="button"
-                className="btn-mini btn-toolbar"
-                title="Collapse all folders"
-                onClick={collapseAll}
-              >
-                ⊟ Collapse
-              </button>
-            </>
-          )}
-        </div>
+        {hasAnyFolders && (
+          <div className="watchlist-tools-row">
+            <button
+              type="button"
+              className="btn-mini btn-toolbar"
+              title="Expand all folders"
+              onClick={expandAll}
+            >
+              ⊞ Expand
+            </button>
+            <button
+              type="button"
+              className="btn-mini btn-toolbar"
+              title="Collapse all folders"
+              onClick={collapseAll}
+            >
+              ⊟ Collapse
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Watchlist Tree Container */}

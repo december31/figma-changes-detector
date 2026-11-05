@@ -28,10 +28,6 @@ export const ComponentItem: React.FC<ComponentItemProps> = ({
   onDelete,
   onChangeFolder
 }) => {
-  const lastFetchedStr = component.latestFetch
-    ? new Date(component.latestFetch.fetched_at).toLocaleString()
-    : 'Never fetched';
-
   const renderStatusPill = () => {
     if (transientStatus?.status === 'loading') {
       return (
@@ -50,6 +46,8 @@ export const ComponentItem: React.FC<ComponentItemProps> = ({
     const statusMeta = getStatusPillMeta(component.latestFetch);
     return <span className={`change-pill ${statusMeta.cls}`}>{statusMeta.text}</span>;
   };
+
+  const folderDisplayName = component.folder_path || component.file_name || 'Root';
 
   return (
     <div
@@ -86,25 +84,28 @@ export const ComponentItem: React.FC<ComponentItemProps> = ({
           </span>
         </div>
         <div className="watchlist-tag-row">
-          {renderStatusPill()}
-          {onChangeFolder && (
+          {onChangeFolder ? (
             <button
               type="button"
               className="watchlist-folder-pill"
-              title={`Folder: ${component.folder_path || component.file_name || 'Root'} (Click to change folder)`}
+              title={`Folder: ${folderDisplayName} (Click to change folder)`}
               onClick={(e) => {
                 e.stopPropagation();
                 onChangeFolder(component);
               }}
             >
-              📁 {component.folder_path || component.file_name || 'Root'}
+              📁 {folderDisplayName}
             </button>
+          ) : (
+            <span
+              className="watchlist-folder-pill"
+              title={`Folder: ${folderDisplayName}`}
+            >
+              📁 {folderDisplayName}
+            </span>
           )}
+          {renderStatusPill()}
         </div>
-        <span className="watchlist-meta">
-          Node <code>{component.node_id}</code> &bull; {component.totalFetches || 0} fetch(es) &bull;{' '}
-          {lastFetchedStr}
-        </span>
       </div>
 
       <div className="watchlist-actions">

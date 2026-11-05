@@ -229,9 +229,8 @@ export function renderWatchlist() {
       ? `<img src="${comp.latestFetch.image_path}" class="watchlist-thumb" alt="${comp.name}" />`
       : `<div class="watchlist-thumb" style="display:flex;align-items:center;justify-content:center;font-size:1.1rem;color:#5c6472;">&#128444;</div>`;
 
-    const lastFetchedStr = comp.latestFetch
-      ? new Date(comp.latestFetch.fetched_at).toLocaleString()
-      : 'Never fetched';
+    const folderText = comp.folder_path || comp.file_name || 'Root';
+    const folderHtml = `<span class="watchlist-folder-pill" title="Folder: ${folderText}">📁 ${folderText}</span>`;
 
     item.innerHTML = `
       ${thumbHtml}
@@ -240,9 +239,9 @@ export function renderWatchlist() {
           <span class="watchlist-name" title="${comp.name}">${comp.name}</span>
         </div>
         <div class="watchlist-tag-row">
+          ${folderHtml}
           ${pillHtml}
         </div>
-        <span class="watchlist-meta">Node <code>${comp.node_id}</code> &bull; ${comp.totalFetches} fetch(es) &bull; ${lastFetchedStr}</span>
       </div>
       <div class="watchlist-actions">
         <button type="button" class="btn-mini inspect-comp-btn" title="Inspect & Compare in Fullscreen">&#x26F6; Inspect</button>
