@@ -466,6 +466,11 @@ input[readonly]:focus,
   max-width: 560px;
 }
 
+.folder-picker-dialog .modal-dialog-footer,
+.folder-picker-footer {
+  justify-content: center;
+}
+
 .folder-picker-body {
   display: flex;
   flex-direction: column;

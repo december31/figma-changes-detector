@@ -24,6 +24,7 @@ export const FolderPickerModal: React.FC<FolderPickerModalProps> = ({
   const [searchFilter, setSearchFilter] = useState('');
   const [newFolderName, setNewFolderName] = useState('');
   const [selectedParent, setSelectedParent] = useState('');
+  const [selectedFolder, setSelectedFolder] = useState<string>(currentFolderPath);
   const [isCreating, setIsCreating] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -77,8 +78,9 @@ export const FolderPickerModal: React.FC<FolderPickerModalProps> = ({
       setSearchFilter('');
       setNewFolderName('');
       setSelectedParent(rootFolderName);
+      setSelectedFolder(currentFolderPath);
     }
-  }, [isOpen, rootFolderName]);
+  }, [isOpen, rootFolderName, currentFolderPath]);
 
   if (!isOpen) return null;
 
@@ -87,15 +89,15 @@ export const FolderPickerModal: React.FC<FolderPickerModalProps> = ({
     sf.relPath.toLowerCase().includes(searchFilter.trim().toLowerCase())
   );
 
-  const normalizedCurrent = normalizeFolderPath(currentFolderPath);
+  const normalizedCurrent = normalizeFolderPath(selectedFolder);
   const isRootSelected =
     !normalizedCurrent ||
     normalizedCurrent.toLowerCase() === rootFolderName.toLowerCase();
 
   const handleSelect = async (path: string) => {
     try {
+      setSelectedFolder(path);
       await onSelectFolder(path);
-      onClose();
     } catch (err: unknown) {
       setErrorMsg(err instanceof Error ? err.message : String(err));
     }
@@ -131,9 +133,10 @@ export const FolderPickerModal: React.FC<FolderPickerModalProps> = ({
       if (onCreateFolder) {
         await onCreateFolder(fullPath);
       }
+      setSelectedFolder(fullPath);
       // Immediately select the created folder
       await onSelectFolder(fullPath);
-      onClose();
+      setNewFolderName('');
     } catch (err: unknown) {
       setErrorMsg(err instanceof Error ? err.message : String(err));
     } finally {
@@ -176,21 +179,6 @@ export const FolderPickerModal: React.FC<FolderPickerModalProps> = ({
           </div>
         ) : (
           <div className="folder-picker-body">
-            {/* Context bar indicating the Figma File Root Folder */}
-            <div className="folder-file-context-card">
-              <div className="folder-file-context-header">
-                <span className="folder-file-label">Figma File (Root Folder)</span>
-                <span className="badge-immutable">Semi-Root</span>
-              </div>
-              <div className="folder-file-name">
-                <span className="folder-file-icon">📁</span>
-                <strong>{rootFolderName}</strong>
-              </div>
-              <div className="folder-file-desc">
-                All folders shown or created here will belong inside <code>{rootFolderName}</code>.
-              </div>
-            </div>
-
             {errorMsg && (
               <div className="banner banner-error" style={{ margin: '0.5rem 0' }}>
                 {errorMsg}
@@ -348,7 +336,7 @@ export const FolderPickerModal: React.FC<FolderPickerModalProps> = ({
                     className="btn-primary"
                     disabled={isCreating || !newFolderName.trim()}
                   >
-                    {isCreating ? 'Creating...' : '+ Create & Select'}
+                    {isCreating ? 'Creating...' : 'Create'}
                   </button>
                 </div>
               </div>
@@ -368,9 +356,9 @@ export const FolderPickerModal: React.FC<FolderPickerModalProps> = ({
               )}
             </form>
 
-            <div className="modal-dialog-footer">
+            <div className="modal-dialog-footer folder-picker-footer">
               <button type="button" className="btn-secondary" onClick={onClose}>
-                Cancel
+                Close
               </button>
             </div>
           </div>
