@@ -153,39 +153,23 @@ export const AddComponentCard: React.FC<AddComponentCardProps> = ({
       <div className="form-group">
         <label htmlFor="compFolderPath">Folder in Figma File</label>
         <div className="folder-picker-control">
-          <div className="folder-display-row">
-            <div
-              className="folder-display-box"
-              onClick={() => setIsFolderPickerOpen(true)}
-              title="Click to choose or create folder"
-            >
-              <span className="folder-display-icon">📁</span>
-              <div className="folder-display-info">
-                <span className="folder-display-text">
-                  {folderPath
-                    ? folderPath
-                    : fileName
-                    ? `${fileName} (File Root)`
-                    : 'Paste Figma link to choose folder'}
-                </span>
-                {fileName && (
-                  <span className="folder-display-hint">
-                    {folderPath && folderPath.toLowerCase() !== fileName.toLowerCase()
-                      ? `Subfolder inside "${fileName}"`
-                      : 'File Root Folder'}
-                  </span>
-                )}
-              </div>
-            </div>
-            <button
-              type="button"
-              className="btn-secondary btn-folder-picker-open"
-              onClick={() => setIsFolderPickerOpen(true)}
-              title="Choose or create folder for this component"
-            >
-              📂 Choose / Create
-            </button>
-          </div>
+          <button
+            type="button"
+            id="compFolderPath"
+            className="folder-display-box"
+            onClick={() => setIsFolderPickerOpen(true)}
+            title="Click to choose or create folder"
+          >
+            <span className="folder-display-icon">📁</span>
+            <span className="folder-display-text">
+              {folderPath
+                ? folderPath
+                : fileName
+                ? `${fileName} (File Root)`
+                : 'Paste Figma link to choose folder'}
+            </span>
+            <span className="folder-picker-arrow">▾</span>
+          </button>
           {folderPath && fileName && folderPath.toLowerCase() !== fileName.toLowerCase() && (
             <button
               type="button"
