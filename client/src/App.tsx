@@ -78,6 +78,7 @@ export const App: React.FC = () => {
   const [formInfo, setFormInfo] = useState<string | null>(null);
   const [formPrefill, setFormPrefill] = useState<{
     fileKey?: string;
+    fileName?: string;
     nodeId?: string;
     name?: string;
     format?: string;
@@ -162,6 +163,7 @@ export const App: React.FC = () => {
           setActiveFetch(target.latestFetch || null);
           setFormPrefill({
             fileKey: target.file_key,
+            fileName: target.file_name,
             nodeId: target.node_id,
             name: target.name,
             format: target.format,
@@ -177,6 +179,7 @@ export const App: React.FC = () => {
             setActiveFetch(firstWithFetch.latestFetch || null);
             setFormPrefill({
               fileKey: firstWithFetch.file_key,
+              fileName: firstWithFetch.file_name,
               nodeId: firstWithFetch.node_id,
               name: firstWithFetch.name,
               format: firstWithFetch.format,
@@ -212,6 +215,7 @@ export const App: React.FC = () => {
     setActiveFetch(comp.latestFetch || null);
     setFormPrefill({
       fileKey: comp.file_key,
+      fileName: comp.file_name,
       nodeId: comp.node_id,
       name: comp.name,
       format: comp.format,
@@ -223,6 +227,7 @@ export const App: React.FC = () => {
   // --- Fetch Now via Add Form ---
   const handleFetchNow = async (formData: {
     fileKey: string;
+    fileName?: string;
     nodeId: string;
     name: string;
     format: string;
@@ -250,6 +255,7 @@ export const App: React.FC = () => {
       const result = await api.fetchComponentDirect({
         token: activeToken || undefined,
         fileKey: formData.fileKey,
+        fileName: formData.fileName,
         nodeId: formData.nodeId,
         name: formData.name,
         format: formData.format,
@@ -276,6 +282,7 @@ export const App: React.FC = () => {
   // --- Add to Watchlist via Add Form ---
   const handleAddToWatchlist = async (formData: {
     fileKey: string;
+    fileName?: string;
     nodeId: string;
     name: string;
     format: string;
@@ -297,6 +304,7 @@ export const App: React.FC = () => {
       const res = await api.createComponent({
         name: formData.name,
         fileKey: formData.fileKey,
+        fileName: formData.fileName,
         nodeId: formData.nodeId,
         format: formData.format,
         scale: formData.scale,
@@ -405,10 +413,12 @@ export const App: React.FC = () => {
       await loadComponents(res.component.id);
       setFormPrefill({
         fileKey: res.component.file_key,
+        fileName: res.component.file_name,
         nodeId: res.component.node_id,
         name: res.component.name,
         format: res.component.format,
-        scale: res.component.scale
+        scale: res.component.scale,
+        folderPath: res.component.folder_path || ''
       });
     }
   };

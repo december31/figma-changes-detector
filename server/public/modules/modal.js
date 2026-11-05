@@ -18,6 +18,7 @@ export function initEditModal({ onSave }) {
   const editFileKey = document.getElementById('editFileKey');
   const editNodeId = document.getElementById('editNodeId');
   const editErrorBanner = document.getElementById('editErrorBanner');
+  const editFileName = document.getElementById('editFileName');
   const editCompName = document.getElementById('editCompName');
   const editFolderPath = document.getElementById('editFolderPath');
   const editRenderFormat = document.getElementById('editRenderFormat');
@@ -39,8 +40,8 @@ export function initEditModal({ onSave }) {
       if (parsed) {
         if (parsed.fileKey && editFileKey) editFileKey.value = parsed.fileKey;
         if (parsed.nodeId && editNodeId) editNodeId.value = parsed.nodeId;
-        if (parsed.fileName && editFolderPath) {
-          editFolderPath.value = resolveSemiRootFolder(parsed.fileName, [], editFolderPath.value);
+        if (parsed.fileName && editFileName) {
+          editFileName.value = parsed.fileName;
         }
         if (editErrorBanner) editErrorBanner.classList.add('hidden');
       }
@@ -132,6 +133,7 @@ export function openEditModal(comp) {
 
   const editModal = document.getElementById('editModal');
   const editFigmaUrl = document.getElementById('editFigmaUrl');
+  const editFileName = document.getElementById('editFileName');
   const editCompName = document.getElementById('editCompName');
   const editFolderPath = document.getElementById('editFolderPath');
   const editFileKey = document.getElementById('editFileKey');
@@ -141,6 +143,7 @@ export function openEditModal(comp) {
   const editErrorBanner = document.getElementById('editErrorBanner');
 
   if (editFigmaUrl) editFigmaUrl.value = comp.figma_url || '';
+  if (editFileName) editFileName.value = comp.file_name || '';
   if (editCompName) editCompName.value = comp.name || '';
   if (editFolderPath) editFolderPath.value = comp.folder_path || '';
   if (editFileKey) editFileKey.value = comp.file_key || '';

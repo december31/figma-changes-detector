@@ -1,7 +1,7 @@
 // client/src/components/EditComponentModal.tsx
 import React, { useState, useEffect } from 'react';
 import { Component, UpdateComponentPayload } from '../types';
-import { parseFigmaUrl, resolveSemiRootFolder } from '../utils';
+import { parseFigmaUrl } from '../utils';
 
 interface EditComponentModalProps {
   isOpen: boolean;
@@ -19,6 +19,7 @@ export const EditComponentModal: React.FC<EditComponentModalProps> = ({
   onSave
 }) => {
   const [name, setName] = useState('');
+  const [fileName, setFileName] = useState('');
   const [folderPath, setFolderPath] = useState('');
   const [fileKey, setFileKey] = useState('');
   const [nodeId, setNodeId] = useState('');
@@ -31,6 +32,7 @@ export const EditComponentModal: React.FC<EditComponentModalProps> = ({
   useEffect(() => {
     if (component) {
       setName(component.name || '');
+      setFileName(component.file_name || '');
       setFolderPath(component.folder_path || '');
       setFileKey(component.file_key || '');
       setNodeId(component.node_id || '');
@@ -65,7 +67,7 @@ export const EditComponentModal: React.FC<EditComponentModalProps> = ({
       if (parsed.fileKey) setFileKey(parsed.fileKey);
       if (parsed.nodeId) setNodeId(parsed.nodeId);
       if (parsed.fileName) {
-        setFolderPath((prev) => resolveSemiRootFolder(parsed.fileName, folders, prev));
+        setFileName(parsed.fileName);
       }
       setErrorBanner(null);
     }
@@ -88,6 +90,7 @@ export const EditComponentModal: React.FC<EditComponentModalProps> = ({
       await onSave(component.id, {
         name: name.trim(),
         fileKey: fileKey.trim(),
+        fileName: fileName.trim(),
         nodeId: nodeId.trim(),
         format,
         scale: Number(scale) || 2,
@@ -136,16 +139,18 @@ export const EditComponentModal: React.FC<EditComponentModalProps> = ({
           </div>
 
           <div className="form-group">
-            <label htmlFor="editCompName">
-              Component Label <span className="required">*</span>
+            <label htmlFor="editFileName">
+              <span>File</span>
+              <span className="badge-immutable">Immutable</span>
             </label>
             <input
               type="text"
-              id="editCompName"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Primary CTA Button"
-              required
+              id="editFileName"
+              value={fileName}
+              readOnly
+              tabIndex={-1}
+              placeholder="Auto-detected from Figma link"
+              className="input-immutable"
             />
           </div>
 
@@ -166,6 +171,20 @@ export const EditComponentModal: React.FC<EditComponentModalProps> = ({
                 ))}
               </datalist>
             )}
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="editCompName">
+              Component Label <span className="required">*</span>
+            </label>
+            <input
+              type="text"
+              id="editCompName"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Primary CTA Button"
+              required
+            />
           </div>
 
           <div className="form-row">

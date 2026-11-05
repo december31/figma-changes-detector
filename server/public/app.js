@@ -44,6 +44,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initWatchlist();
 
   const figmaUrlInput = document.getElementById('figmaUrl');
+  const compFileNameInput = document.getElementById('compFileName');
   const fileKeyInput = document.getElementById('fileKey');
   const nodeIdInput = document.getElementById('nodeId');
   const compFolderPathInput = document.getElementById('compFolderPath');
@@ -54,8 +55,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (parsed) {
         if (parsed.fileKey && fileKeyInput) fileKeyInput.value = parsed.fileKey;
         if (parsed.nodeId && nodeIdInput) nodeIdInput.value = parsed.nodeId;
-        if (parsed.fileName && compFolderPathInput) {
-          compFolderPathInput.value = resolveSemiRootFolder(parsed.fileName, [], compFolderPathInput.value);
+        if (parsed.fileName && compFileNameInput) {
+          compFileNameInput.value = parsed.fileName;
         }
         hideBanners();
       }

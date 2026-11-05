@@ -12,7 +12,7 @@ router.get('/config', (req, res) => {
 // POST /api/figma/image - Direct fetch endpoint
 router.post('/figma/image', async (req, res) => {
   try {
-    const { token, fileKey, nodeId, format = 'png', scale = 2, name = '', figmaUrl = '', folderPath = '' } = req.body;
+    const { token, fileKey, fileName, nodeId, format = 'png', scale = 2, name = '', figmaUrl = '', folderPath = '' } = req.body;
 
     const activeToken = (token && token.trim()) || (process.env.FIGMA_ACCESS_TOKEN && process.env.FIGMA_ACCESS_TOKEN.trim());
     if (!activeToken) {
@@ -39,6 +39,7 @@ router.post('/figma/image', async (req, res) => {
     const result = await executeComponentFetch({
       token: activeToken,
       fileKey,
+      fileName: fileName ? fileName.trim() : undefined,
       nodeId,
       format,
       scale,

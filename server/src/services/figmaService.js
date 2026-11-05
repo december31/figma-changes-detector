@@ -96,7 +96,17 @@ async function fetchFigmaNodeMetadata({ token, fileKey, nodeId, customName = '' 
  * 5. Run diff comparison against previous fetch
  * 6. Save fetch record in repository
  */
-async function executeComponentFetch({ token, fileKey, nodeId, format = 'png', scale = 2, customName = '', figmaUrl = '', folderPath = '' }) {
+async function executeComponentFetch({
+  token,
+  fileKey,
+  fileName,
+  nodeId,
+  format = 'png',
+  scale = 2,
+  customName = '',
+  figmaUrl = '',
+  folderPath = ''
+}) {
   const cleanFileKey = fileKey.trim();
   const cleanNodeId = normalizeNodeId(nodeId);
   const validFormat = ['png', 'jpg', 'svg', 'pdf'].includes(String(format).toLowerCase())
@@ -122,9 +132,11 @@ async function executeComponentFetch({ token, fileKey, nodeId, format = 'png', s
   });
 
   // Resolve semi-root folder: the Figma document name
-  const docFileName = (nodeMetadata.fileName && nodeMetadata.fileName !== 'Figma Document')
-    ? nodeMetadata.fileName
-    : (parseFigmaUrl(figmaUrl)?.fileName || nodeMetadata.fileName || 'Figma Document');
+  const docFileName = (fileName && fileName.trim() && fileName !== 'Figma Document')
+    ? fileName.trim()
+    : ((nodeMetadata.fileName && nodeMetadata.fileName !== 'Figma Document')
+        ? nodeMetadata.fileName
+        : (parseFigmaUrl(figmaUrl)?.fileName || nodeMetadata.fileName || 'Figma Document'));
 
   const resolvedFolder = resolveSemiRootFolder(docFileName, getAllFolders(), folderPath);
 
@@ -132,7 +144,7 @@ async function executeComponentFetch({ token, fileKey, nodeId, format = 'png', s
   const componentRecord = upsertComponent({
     name: nodeMetadata.nodeName,
     fileKey: cleanFileKey,
-    fileName: nodeMetadata.fileName,
+    fileName: (nodeMetadata.fileName && nodeMetadata.fileName !== 'Figma Document') ? nodeMetadata.fileName : (fileName || nodeMetadata.fileName),
     nodeId: cleanNodeId,
     nodeType: nodeMetadata.nodeType,
     format: validFormat,

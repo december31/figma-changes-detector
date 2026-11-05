@@ -1,10 +1,11 @@
 // client/src/components/AddComponentCard.tsx
 import React, { useState } from 'react';
-import { parseFigmaUrl, resolveSemiRootFolder } from '../utils';
+import { parseFigmaUrl } from '../utils';
 
 interface AddComponentCardProps {
   onFetchNow: (formData: {
     fileKey: string;
+    fileName?: string;
     nodeId: string;
     name: string;
     format: string;
@@ -14,6 +15,7 @@ interface AddComponentCardProps {
   }) => Promise<void>;
   onAddToWatchlist: (formData: {
     fileKey: string;
+    fileName?: string;
     nodeId: string;
     name: string;
     format: string;
@@ -28,6 +30,7 @@ interface AddComponentCardProps {
   onClearBanners: () => void;
   initialValues?: {
     fileKey?: string;
+    fileName?: string;
     nodeId?: string;
     name?: string;
     format?: string;
@@ -47,6 +50,7 @@ export const AddComponentCard: React.FC<AddComponentCardProps> = ({
   initialValues
 }) => {
   const [figmaUrl, setFigmaUrl] = useState('');
+  const [fileName, setFileName] = useState(initialValues?.fileName || '');
   const [compCustomName, setCompCustomName] = useState(initialValues?.name || '');
   const [folderPath, setFolderPath] = useState(initialValues?.folderPath || '');
   const [fileKey, setFileKey] = useState(initialValues?.fileKey || '');
@@ -58,6 +62,7 @@ export const AddComponentCard: React.FC<AddComponentCardProps> = ({
   React.useEffect(() => {
     if (initialValues) {
       if (initialValues.fileKey !== undefined) setFileKey(initialValues.fileKey);
+      if (initialValues.fileName !== undefined) setFileName(initialValues.fileName);
       if (initialValues.nodeId !== undefined) setNodeId(initialValues.nodeId);
       if (initialValues.name !== undefined) setCompCustomName(initialValues.name);
       if (initialValues.format !== undefined) setRenderFormat(initialValues.format);
@@ -74,7 +79,7 @@ export const AddComponentCard: React.FC<AddComponentCardProps> = ({
       if (parsed.fileKey) setFileKey(parsed.fileKey);
       if (parsed.nodeId) setNodeId(parsed.nodeId);
       if (parsed.fileName) {
-        setFolderPath((prev) => resolveSemiRootFolder(parsed.fileName, folders, prev));
+        setFileName(parsed.fileName);
       }
       onClearBanners();
     }
@@ -83,6 +88,7 @@ export const AddComponentCard: React.FC<AddComponentCardProps> = ({
   const handleFetchClick = () => {
     onFetchNow({
       fileKey: fileKey.trim(),
+      fileName: fileName.trim(),
       nodeId: nodeId.trim(),
       name: compCustomName.trim(),
       format: renderFormat,
@@ -95,6 +101,7 @@ export const AddComponentCard: React.FC<AddComponentCardProps> = ({
   const handleAddClick = () => {
     onAddToWatchlist({
       fileKey: fileKey.trim(),
+      fileName: fileName.trim(),
       nodeId: nodeId.trim(),
       name: compCustomName.trim(),
       format: renderFormat,
@@ -123,13 +130,18 @@ export const AddComponentCard: React.FC<AddComponentCardProps> = ({
       </div>
 
       <div className="form-group">
-        <label htmlFor="compCustomName">Component Label (Optional)</label>
+        <label htmlFor="compFileName">
+          <span>File</span>
+          <span className="badge-immutable">Immutable</span>
+        </label>
         <input
           type="text"
-          id="compCustomName"
-          value={compCustomName}
-          onChange={(e) => setCompCustomName(e.target.value)}
-          placeholder="e.g. Primary CTA Button (auto-detected if blank)"
+          id="compFileName"
+          value={fileName}
+          readOnly
+          tabIndex={-1}
+          placeholder="Auto-detected from Figma link"
+          className="input-immutable"
         />
       </div>
 
@@ -150,6 +162,17 @@ export const AddComponentCard: React.FC<AddComponentCardProps> = ({
             ))}
           </datalist>
         )}
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="compCustomName">Component Label (Optional)</label>
+        <input
+          type="text"
+          id="compCustomName"
+          value={compCustomName}
+          onChange={(e) => setCompCustomName(e.target.value)}
+          placeholder="e.g. Primary CTA Button (auto-detected if blank)"
+        />
       </div>
 
       <div className="form-row">

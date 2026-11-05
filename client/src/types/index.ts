@@ -89,6 +89,7 @@ export interface BatchResponse {
 export interface CreateComponentPayload {
   name?: string;
   fileKey: string;
+  fileName?: string;
   nodeId: string;
   format?: string;
   scale?: number;
@@ -101,6 +102,7 @@ export interface CreateComponentPayload {
 export interface UpdateComponentPayload {
   name?: string;
   fileKey?: string;
+  fileName?: string;
   nodeId?: string;
   format?: string;
   scale?: number;
@@ -111,6 +113,7 @@ export interface UpdateComponentPayload {
 export interface DirectFetchPayload {
   token?: string;
   fileKey: string;
+  fileName?: string;
   nodeId: string;
   format?: string;
   scale?: number;
