@@ -12,7 +12,12 @@ const {
   renameFolder,
   deleteFolder,
   resolveSemiRootFolder,
-  parseFigmaUrl
+  parseFigmaUrl,
+  createFetchRun,
+  updateFetchRunProgress,
+  completeFetchRun,
+  getAllFetchRuns,
+  getFetchRunDetails
 } = require('../repositories/componentRepository');
 const { executeComponentFetch, normalizeNodeId } = require('../services/figmaService');
 
@@ -21,6 +26,54 @@ router.get('/', (req, res) => {
   try {
     const components = getAllComponentsWithStatus();
     res.json({ success: true, components });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/components/runs - List all running history sessions
+router.get('/runs', (req, res) => {
+  try {
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
+    const runs = getAllFetchRuns(limit);
+    res.json({ success: true, runs });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/components/runs/:runId - Get details of a single run with its snapshot images
+router.get('/runs/:runId', (req, res) => {
+  try {
+    const runId = Number(req.params.runId);
+    const details = getFetchRunDetails(runId);
+    if (!details) {
+      return res.status(404).json({ success: false, error: 'Run session not found.' });
+    }
+    res.json({ success: true, ...details });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/components/runs/start - Start a new tracked run session
+router.post('/runs/start', (req, res) => {
+  try {
+    const { triggerType = 'all', targetName = 'All Components', totalItems = 0 } = req.body || {};
+    const run = createFetchRun({ triggerType, targetName, totalItems });
+    res.json({ success: true, run });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/components/runs/:runId/complete - Complete a tracked run session
+router.post('/runs/:runId/complete', (req, res) => {
+  try {
+    const runId = Number(req.params.runId);
+    const { status = 'completed', counts } = req.body || {};
+    const run = completeFetchRun(runId, status, counts);
+    res.json({ success: true, run });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -205,13 +258,25 @@ router.post('/:id/fetch', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Component not found in watchlist.' });
     }
 
-    const { token } = req.body || {};
+    const { token, runId } = req.body || {};
     const activeToken = (token && token.trim()) || (process.env.FIGMA_ACCESS_TOKEN && process.env.FIGMA_ACCESS_TOKEN.trim());
     if (!activeToken) {
       return res.status(400).json({
         success: false,
         error: 'Figma Access Token is required. Provide it in the UI or set FIGMA_ACCESS_TOKEN in .env'
       });
+    }
+
+    // If no runId supplied, create a one-off single run automatically
+    let effectiveRunId = runId ? Number(runId) : null;
+    let singleRun = null;
+    if (!effectiveRunId) {
+      singleRun = createFetchRun({
+        triggerType: 'single',
+        targetName: component.name,
+        totalItems: 1
+      });
+      effectiveRunId = singleRun.id;
     }
 
     const result = await executeComponentFetch({
@@ -221,8 +286,20 @@ router.post('/:id/fetch', async (req, res) => {
       format: component.format || 'png',
       scale: component.scale || 2,
       customName: component.name,
-      figmaUrl: component.figma_url
+      figmaUrl: component.figma_url,
+      runId: effectiveRunId
     });
+
+    if (singleRun) {
+      const status = result.currentFetch.change_status;
+      completeFetchRun(effectiveRunId, 'completed', {
+        totalItems: 1,
+        changedCount: status === 'changed' ? 1 : 0,
+        unchangedCount: status === 'unchanged' ? 1 : 0,
+        baselineCount: status === 'baseline' ? 1 : 0,
+        errorCount: 0
+      });
+    }
 
     return res.json({ success: true, ...result });
   } catch (err) {
@@ -233,7 +310,7 @@ router.post('/:id/fetch', async (req, res) => {
 // POST /api/components/fetch-all - Batch check all components
 router.post('/fetch-all', async (req, res) => {
   try {
-    const { token } = req.body || {};
+    const { token, componentIds, targetName, triggerType } = req.body || {};
     const activeToken = (token && token.trim()) || (process.env.FIGMA_ACCESS_TOKEN && process.env.FIGMA_ACCESS_TOKEN.trim());
     if (!activeToken) {
       return res.status(400).json({
@@ -242,13 +319,27 @@ router.post('/fetch-all', async (req, res) => {
       });
     }
 
-    const components = getAllComponentsWithStatus();
-    if (!components.length) {
+    let allComps = getAllComponentsWithStatus();
+    if (Array.isArray(componentIds) && componentIds.length > 0) {
+      const idSet = new Set(componentIds.map(Number));
+      allComps = allComps.filter(c => idSet.has(c.id));
+    }
+
+    if (!allComps.length) {
       return res.status(400).json({
         success: false,
-        error: 'No components in watchlist yet. Add at least one component first.'
+        error: 'No components in target to check.'
       });
     }
+
+    const effectiveTrigger = triggerType || (componentIds ? 'folder' : 'all');
+    const effectiveName = targetName || (effectiveTrigger === 'folder' ? 'Folder Batch' : 'All Components');
+
+    const run = createFetchRun({
+      triggerType: effectiveTrigger,
+      targetName: effectiveName,
+      totalItems: allComps.length
+    });
 
     const results = [];
     let changedCount = 0;
@@ -256,7 +347,7 @@ router.post('/fetch-all', async (req, res) => {
     let baselineCount = 0;
     let errorCount = 0;
 
-    for (const comp of components) {
+    for (const comp of allComps) {
       try {
         const resItem = await executeComponentFetch({
           token: activeToken,
@@ -265,7 +356,8 @@ router.post('/fetch-all', async (req, res) => {
           format: comp.format || 'png',
           scale: comp.scale || 2,
           customName: comp.name,
-          figmaUrl: comp.figma_url
+          figmaUrl: comp.figma_url,
+          runId: run.id
         });
 
         const status = resItem.currentFetch.change_status;
@@ -290,10 +382,19 @@ router.post('/fetch-all', async (req, res) => {
       }
     }
 
+    completeFetchRun(run.id, 'completed', {
+      totalItems: allComps.length,
+      changedCount,
+      unchangedCount,
+      baselineCount,
+      errorCount
+    });
+
     return res.json({
       success: true,
+      runId: run.id,
       summary: {
-        total: components.length,
+        total: allComps.length,
         changed: changedCount,
         unchanged: unchangedCount,
         baseline: baselineCount,

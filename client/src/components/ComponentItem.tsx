@@ -16,7 +16,7 @@ interface ComponentItemProps {
   onChangeFolder?: (comp: Component) => void;
 }
 
-export const ComponentItem: React.FC<ComponentItemProps> = ({
+export const ComponentItem: React.FC<ComponentItemProps> = React.memo(({
   component,
   isActive,
   transientStatus,
@@ -53,27 +53,6 @@ export const ComponentItem: React.FC<ComponentItemProps> = ({
       style={depth ? { paddingLeft: `${Math.max(depth * 16 + 10, 10)}px` } : undefined}
       onClick={() => onSelect(component)}
     >
-      {component.latestFetch ? (
-        <img
-          src={component.latestFetch.image_path}
-          className="watchlist-thumb"
-          alt={component.name}
-        />
-      ) : (
-        <div
-          className="watchlist-thumb"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '1.1rem',
-            color: '#5c6472'
-          }}
-        >
-          🖼
-        </div>
-      )}
-
       <div className="watchlist-info">
         <div className="watchlist-title-row">
           <span className="watchlist-name" title={component.name}>
@@ -134,4 +113,4 @@ export const ComponentItem: React.FC<ComponentItemProps> = ({
       </div>
     </div>
   );
-};
+});

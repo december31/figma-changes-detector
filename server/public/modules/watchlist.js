@@ -225,8 +225,12 @@ export function renderWatchlist() {
       pillHtml = `<span class="change-pill ${statusMeta.cls}">${statusMeta.text}</span>`;
     }
 
-    const thumbHtml = comp.latestFetch
-      ? `<img src="${comp.latestFetch.image_path}" class="watchlist-thumb" alt="${comp.name}" />`
+    const thumbSrc = comp.latestFetch
+      ? `/api/thumbnail?src=${encodeURIComponent(comp.latestFetch.image_path)}`
+      : null;
+
+    const thumbHtml = thumbSrc
+      ? `<img src="${thumbSrc}" class="watchlist-thumb" alt="${comp.name}" width="42" height="42" loading="lazy" decoding="async" />`
       : `<div class="watchlist-thumb" style="display:flex;align-items:center;justify-content:center;font-size:1.1rem;color:#5c6472;">&#128444;</div>`;
 
     item.innerHTML = `

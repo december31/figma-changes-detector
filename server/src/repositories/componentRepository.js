@@ -70,7 +70,32 @@ db.exec(`
     created_at TEXT NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_tracked_folder ON tracked_components(folder_path);
+
+  CREATE TABLE IF NOT EXISTS fetch_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    trigger_type TEXT NOT NULL DEFAULT 'all',
+    target_name TEXT NOT NULL DEFAULT 'All Components',
+    status TEXT NOT NULL DEFAULT 'completed',
+    total_items INTEGER DEFAULT 0,
+    changed_count INTEGER DEFAULT 0,
+    unchanged_count INTEGER DEFAULT 0,
+    baseline_count INTEGER DEFAULT 0,
+    error_count INTEGER DEFAULT 0,
+    started_at TEXT NOT NULL,
+    completed_at TEXT
+  );
 `);
+
+// Ensure run_id exists in fetch_history
+try {
+  db.exec(`ALTER TABLE fetch_history ADD COLUMN run_id INTEGER REFERENCES fetch_runs(id) ON DELETE SET NULL;`);
+} catch (e) {
+  // Column already exists
+}
+
+try {
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_fetch_history_run_id ON fetch_history(run_id);`);
+} catch (e) {}
 
 function normalizeFolderPath(pathStr) {
   if (!pathStr || typeof pathStr !== 'string') return '';
@@ -220,36 +245,43 @@ function deleteFolder(pathStr, deleteComponents = false) {
   const norm = normalizeFolderPath(pathStr);
   if (!norm) throw new Error('Folder path is required.');
 
-  const isRoot = !norm.includes('/');
+  const compCount = db.prepare(`
+    SELECT COUNT(*) as count FROM tracked_components 
+    WHERE folder_path = ? OR folder_path LIKE ? || '/%'
+  `).get(norm, norm)?.count || 0;
+
   const matchesFileName = db.prepare(`
     SELECT COUNT(*) as count FROM tracked_components WHERE LOWER(file_name) = LOWER(?)
-  `).get(norm)?.count > 0;
+  `).get(norm)?.count || 0;
 
-  if (isRoot || matchesFileName) {
-    throw new Error(`The root folder "${norm}" (Figma file name) cannot be deleted.`);
+  // Only protect root folder if it has active tracked components
+  if (compCount > 0 && matchesFileName) {
+    throw new Error(`The root folder "${norm}" has active components and cannot be deleted.`);
   }
 
-  if (deleteComponents) {
-    const comps = db.prepare(`
-      SELECT id FROM tracked_components WHERE folder_path = ? OR folder_path LIKE ? || '/%'
-    `).all(norm, norm);
-    for (const c of comps) {
-      deleteComponent(c.id);
-    }
-  } else {
-    const parentPath = norm.includes('/') ? norm.slice(0, norm.lastIndexOf('/')) : '';
-    db.prepare(`
-      UPDATE tracked_components SET folder_path = ? WHERE folder_path = ?
-    `).run(parentPath, norm);
+  if (compCount > 0) {
+    if (deleteComponents) {
+      const comps = db.prepare(`
+        SELECT id FROM tracked_components WHERE folder_path = ? OR folder_path LIKE ? || '/%'
+      `).all(norm, norm);
+      for (const c of comps) {
+        deleteComponent(c.id);
+      }
+    } else {
+      const parentPath = norm.includes('/') ? norm.slice(0, norm.lastIndexOf('/')) : '';
+      db.prepare(`
+        UPDATE tracked_components SET folder_path = ? WHERE folder_path = ?
+      `).run(parentPath, norm);
 
-    const subComps = db.prepare(`
-      SELECT id, folder_path FROM tracked_components WHERE folder_path LIKE ? || '/%'
-    `).all(norm);
-    const updateCompStmt = db.prepare(`UPDATE tracked_components SET folder_path = ? WHERE id = ?`);
-    for (const c of subComps) {
-      const rest = c.folder_path.slice(norm.length);
-      const updated = parentPath ? `${parentPath}${rest}` : rest.replace(/^\//, '');
-      updateCompStmt.run(updated, c.id);
+      const subComps = db.prepare(`
+        SELECT id, folder_path FROM tracked_components WHERE folder_path LIKE ? || '/%'
+      `).all(norm);
+      const updateCompStmt = db.prepare(`UPDATE tracked_components SET folder_path = ? WHERE id = ?`);
+      for (const c of subComps) {
+        const rest = c.folder_path.slice(norm.length);
+        const updated = parentPath ? `${parentPath}${rest}` : rest.replace(/^\//, '');
+        updateCompStmt.run(updated, c.id);
+      }
     }
   }
 
@@ -431,14 +463,15 @@ function insertFetchRecord({
   diffBoxesJson = '[]',
   previousFetchId = null,
   figmaLastModified = null,
-  fetchedAt = new Date().toISOString()
+  fetchedAt = new Date().toISOString(),
+  runId = null
 }) {
   const result = db.prepare(`
     INSERT INTO fetch_history (
       component_id, image_path, file_hash, width, height,
       has_changes, change_status, diff_pixels, diff_percentage,
-      diff_image_path, diff_boxes_json, previous_fetch_id, figma_last_modified, fetched_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      diff_image_path, diff_boxes_json, previous_fetch_id, figma_last_modified, fetched_at, run_id
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     componentId,
     imagePath,
@@ -453,7 +486,8 @@ function insertFetchRecord({
     typeof diffBoxesJson === 'string' ? diffBoxesJson : JSON.stringify(diffBoxesJson || []),
     previousFetchId,
     figmaLastModified,
-    fetchedAt
+    fetchedAt,
+    runId
   );
 
   return getFetchById(result.lastInsertRowid);
@@ -470,6 +504,104 @@ function removeAssetFile(urlPath) {
   } catch (e) {
     console.warn('Could not delete asset file:', urlPath, e.message);
   }
+}
+
+// ==========================================
+// Fetch Runs Management
+// ==========================================
+
+function createFetchRun({ triggerType = 'all', targetName = 'All Components', totalItems = 0 }) {
+  const now = new Date().toISOString();
+  const stmt = db.prepare(`
+    INSERT INTO fetch_runs (
+      trigger_type, target_name, status, total_items, changed_count, unchanged_count, baseline_count, error_count, started_at
+    ) VALUES (?, ?, 'running', ?, 0, 0, 0, 0, ?)
+  `);
+  const res = stmt.run(triggerType, targetName, totalItems, now);
+  return getFetchRunById(res.lastInsertRowid);
+}
+
+function updateFetchRunProgress(runId, { changedDelta = 0, unchangedDelta = 0, baselineDelta = 0, errorDelta = 0 }) {
+  db.prepare(`
+    UPDATE fetch_runs
+    SET changed_count = changed_count + ?,
+        unchanged_count = unchanged_count + ?,
+        baseline_count = baseline_count + ?,
+        error_count = error_count + ?
+    WHERE id = ?
+  `).run(changedDelta, unchangedDelta, baselineDelta, errorDelta, runId);
+}
+
+function completeFetchRun(runId, status = 'completed', counts = null) {
+  const now = new Date().toISOString();
+  if (counts) {
+    db.prepare(`
+      UPDATE fetch_runs
+      SET status = ?,
+          total_items = COALESCE(?, total_items),
+          changed_count = COALESCE(?, changed_count),
+          unchanged_count = COALESCE(?, unchanged_count),
+          baseline_count = COALESCE(?, baseline_count),
+          error_count = COALESCE(?, error_count),
+          completed_at = ?
+      WHERE id = ?
+    `).run(
+      status,
+      counts.totalItems !== undefined ? counts.totalItems : null,
+      counts.changedCount !== undefined ? counts.changedCount : null,
+      counts.unchangedCount !== undefined ? counts.unchangedCount : null,
+      counts.baselineCount !== undefined ? counts.baselineCount : null,
+      counts.errorCount !== undefined ? counts.errorCount : null,
+      now,
+      runId
+    );
+  } else {
+    db.prepare(`
+      UPDATE fetch_runs
+      SET status = ?,
+          completed_at = ?
+      WHERE id = ?
+    `).run(status, now, runId);
+  }
+  return getFetchRunById(runId);
+}
+
+function getFetchRunById(runId) {
+  return db.prepare(`SELECT * FROM fetch_runs WHERE id = ?`).get(runId);
+}
+
+function getAllFetchRuns(limit = 100) {
+  return db.prepare(`
+    SELECT * FROM fetch_runs
+    ORDER BY id DESC
+    LIMIT ?
+  `).all(limit);
+}
+
+function getFetchRunDetails(runId) {
+  const run = getFetchRunById(runId);
+  if (!run) return null;
+
+  const fetches = db.prepare(`
+    SELECT 
+      fh.*,
+      tc.name AS component_name,
+      tc.file_name AS file_name,
+      tc.file_key AS file_key,
+      tc.node_id AS node_id,
+      tc.folder_path AS folder_path,
+      prev.image_path AS prev_image_path
+    FROM fetch_history fh
+    JOIN tracked_components tc ON tc.id = fh.component_id
+    LEFT JOIN fetch_history prev ON prev.id = fh.previous_fetch_id
+    WHERE fh.run_id = ?
+    ORDER BY fh.id ASC
+  `).all(runId);
+
+  return {
+    run,
+    items: fetches
+  };
 }
 
 module.exports = {
@@ -490,5 +622,11 @@ module.exports = {
   renameFolder,
   deleteFolder,
   resolveSemiRootFolder,
-  parseFigmaUrl
+  parseFigmaUrl,
+  createFetchRun,
+  updateFetchRunProgress,
+  completeFetchRun,
+  getFetchRunById,
+  getAllFetchRuns,
+  getFetchRunDetails
 };

@@ -1,12 +1,37 @@
 const express = require('express');
 const router = express.Router();
+const path = require('path');
+const fs = require('fs');
 const { executeComponentFetch } = require('../services/figmaService');
+const { getOrCreateThumbnail, rootDir } = require('../services/thumbnailService');
 
 // GET /api/config - App runtime configuration (token presence check)
 router.get('/config', (req, res) => {
   res.json({
     hasDefaultToken: Boolean(process.env.FIGMA_ACCESS_TOKEN && process.env.FIGMA_ACCESS_TOKEN.trim())
   });
+});
+
+// GET /api/thumbnail?src=...&size=96 - Fast low-memory thumbnail endpoint
+router.get('/thumbnail', async (req, res) => {
+  try {
+    const { src, size } = req.query;
+    if (!src) return res.status(400).send('Missing src query param');
+
+    const targetSize = Math.min(Math.max(parseInt(size, 10) || 96, 32), 256);
+    const thumbPath = await getOrCreateThumbnail(src, targetSize);
+    if (!thumbPath) return res.status(404).send('Image not found');
+
+    const diskPath = path.join(rootDir, thumbPath.replace(/^\//, ''));
+    if (fs.existsSync(diskPath)) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      return res.sendFile(diskPath);
+    }
+    return res.redirect(thumbPath);
+  } catch (err) {
+    console.error('Thumbnail route error:', err);
+    return res.status(500).send('Error generating thumbnail');
+  }
 });
 
 // POST /api/figma/image - Direct fetch endpoint

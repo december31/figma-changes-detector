@@ -79,6 +79,35 @@ export interface BatchSummary {
   errors: number;
 }
 
+export interface FetchRun {
+  id: number;
+  trigger_type: 'all' | 'folder' | 'single';
+  target_name: string;
+  status: 'running' | 'completed' | 'failed';
+  total_items: number;
+  changed_count: number;
+  unchanged_count: number;
+  baseline_count: number;
+  error_count: number;
+  started_at: string;
+  completed_at?: string | null;
+}
+
+export interface RunItemRecord extends FetchRecord {
+  component_name: string;
+  file_name?: string;
+  file_key?: string;
+  node_id: string;
+  folder_path?: string;
+  prev_image_path?: string | null;
+}
+
+export interface RunDetailsResponse {
+  success: boolean;
+  run: FetchRun;
+  items: RunItemRecord[];
+}
+
 export interface BatchResponse {
   success: boolean;
   summary?: BatchSummary;

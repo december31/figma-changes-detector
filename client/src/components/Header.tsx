@@ -4,9 +4,10 @@ import { TokenStatusInfo } from '../types';
 
 interface HeaderProps {
   tokenStatus: TokenStatusInfo;
+  onOpenHistory?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ tokenStatus }) => {
+export const Header: React.FC<HeaderProps> = ({ tokenStatus, onOpenHistory }) => {
   return (
     <header class-name="app-header" className="app-header">
       <div className="header-left">
@@ -39,7 +40,17 @@ export const Header: React.FC<HeaderProps> = ({ tokenStatus }) => {
           <p className="subtitle">SQLite-backed visual regression tracker for Figma components</p>
         </div>
       </div>
-      <div className="header-right">
+      <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        {onOpenHistory && (
+          <button
+            type="button"
+            className="btn-pill"
+            onClick={onOpenHistory}
+            style={{ padding: '0.35rem 0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+          >
+            📋 Running History &amp; Report
+          </button>
+        )}
         <span id="tokenStatusBadge" className={`status-badge ${tokenStatus.className}`}>
           {tokenStatus.label}
         </span>

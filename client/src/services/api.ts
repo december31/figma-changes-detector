@@ -8,7 +8,9 @@ import {
   UpdateComponentPayload,
   DirectFetchPayload,
   BatchResponse,
-  FetchRecord
+  FetchRecord,
+  FetchRun,
+  RunDetailsResponse
 } from '../types';
 
 const API_BASE = '/api';
@@ -157,12 +159,13 @@ export async function fetchComponentDirect(
 
 export async function fetchComponentWatchlist(
   id: number,
-  token?: string
+  token?: string,
+  runId?: number
 ): Promise<ComponentFetchResponse> {
   const res = await fetch(`${API_BASE}/components/${id}/fetch`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token: token?.trim() || undefined })
+    body: JSON.stringify({ token: token?.trim() || undefined, runId })
   });
   const data = await res.json();
   if (!res.ok || !data.success) {
@@ -180,6 +183,63 @@ export async function fetchAllComponents(token?: string): Promise<BatchResponse>
   const data = await res.json();
   if (!res.ok || !data.success) {
     throw new Error(data.error || 'Failed to batch fetch all components.');
+  }
+  return data;
+}
+
+export async function startFetchRun(payload: {
+  triggerType: 'all' | 'folder' | 'single';
+  targetName: string;
+  totalItems: number;
+}): Promise<FetchRun> {
+  const res = await fetch(`${API_BASE}/components/runs/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Failed to start fetch run session.');
+  }
+  return data.run;
+}
+
+export async function completeFetchRun(
+  runId: number,
+  counts: {
+    totalItems: number;
+    changedCount: number;
+    unchangedCount: number;
+    baselineCount: number;
+    errorCount: number;
+  }
+): Promise<FetchRun> {
+  const res = await fetch(`${API_BASE}/components/runs/${runId}/complete`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'completed', counts })
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Failed to complete fetch run session.');
+  }
+  return data.run;
+}
+
+export async function getFetchRuns(limit = 50): Promise<FetchRun[]> {
+  const res = await fetch(`${API_BASE}/components/runs?limit=${limit}`);
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Failed to fetch running history.');
+  }
+  return data.runs || [];
+}
+
+export async function getRunDetails(runId: number): Promise<RunDetailsResponse> {
+  const res = await fetch(`${API_BASE}/components/runs/${runId}`);
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Failed to load run details.');
   }
   return data;
 }

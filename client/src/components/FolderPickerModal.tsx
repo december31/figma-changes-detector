@@ -2,6 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { normalizeFolderPath } from '../utils';
 import * as api from '../services/api';
+import { FigmaIcon } from './FigmaIcon';
 
 interface FolderPickerModalProps {
   isOpen: boolean;
@@ -249,7 +250,9 @@ export const FolderPickerModal: React.FC<FolderPickerModalProps> = ({
                   onClick={() => handleSelect(rootFolderName)}
                 >
                   <div className="folder-picker-item-left">
-                    <span className="folder-icon">📁</span>
+                    <span className="folder-icon" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                      <FigmaIcon size={14} />
+                    </span>
                     <div className="folder-picker-item-info">
                       <span className="folder-picker-name">{rootFolderName}</span>
                       <span className="folder-picker-badge-root">Root of File</span>

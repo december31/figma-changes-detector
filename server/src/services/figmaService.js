@@ -9,6 +9,7 @@ const {
   getAllFolders
 } = require('../repositories/componentRepository');
 const { compareWithPreviousFetch } = require('./diffService');
+const { getOrCreateThumbnail } = require('./thumbnailService');
 
 const rootDir = path.resolve(__dirname, '..', '..');
 const snapshotsDir = path.join(rootDir, 'assets', 'snapshots');
@@ -105,7 +106,8 @@ async function executeComponentFetch({
   scale = 2,
   customName = '',
   figmaUrl = '',
-  folderPath = ''
+  folderPath = '',
+  runId = null
 }) {
   const cleanFileKey = fileKey.trim();
   const cleanNodeId = normalizeNodeId(nodeId);
@@ -165,6 +167,11 @@ async function executeComponentFetch({
   fs.writeFileSync(snapshotDiskPath, imageBuffer);
   const localImagePath = `/assets/snapshots/${snapshotFilename}`;
 
+  // Pre-generate thumbnail in background
+  getOrCreateThumbnail(localImagePath, 96).catch((err) => {
+    console.warn('Background thumbnail generation failed:', err.message);
+  });
+
   // 6. Compare with previous fetch
   const comparison = compareWithPreviousFetch(
     previousFetch,
@@ -187,7 +194,8 @@ async function executeComponentFetch({
     diffBoxesJson: '[]',
     previousFetchId: comparison.previousFetchId,
     figmaLastModified: nodeMetadata.lastModified,
-    fetchedAt: now.toISOString()
+    fetchedAt: now.toISOString(),
+    runId
   });
 
   return {

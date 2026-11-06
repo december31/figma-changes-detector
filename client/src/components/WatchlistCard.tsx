@@ -3,6 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { Component, BatchResultItem, BatchSummary, TransientStatus, FolderTreeNode } from '../types';
 import { ComponentItem } from './ComponentItem';
 import { FolderPickerModal } from './FolderPickerModal';
+import { FigmaIcon } from './FigmaIcon';
 import { getStatusPillMeta, buildComponentTree, filterTree, getFolderComponentIds } from '../utils';
 
 interface WatchlistCardProps {
@@ -52,8 +53,8 @@ export const WatchlistCard: React.FC<WatchlistCardProps> = ({
   onInspectBatchItem,
   onUpdateComponentFolder
 }) => {
-  // Tree state
-  const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
+  // Tree state (default collapsed)
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [folderPickerComp, setFolderPickerComp] = useState<Component | null>(null);
 
@@ -104,7 +105,7 @@ export const WatchlistCard: React.FC<WatchlistCardProps> = ({
   }, [rawTree, searchQuery]);
 
   const toggleFolder = (path: string) => {
-    setCollapsedFolders((prev) => {
+    setExpandedFolders((prev) => {
       const next = new Set(prev);
       if (next.has(path)) next.delete(path);
       else next.add(path);
@@ -113,17 +114,17 @@ export const WatchlistCard: React.FC<WatchlistCardProps> = ({
   };
 
   const expandAll = () => {
-    setCollapsedFolders(new Set());
-  };
-
-  const collapseAll = () => {
     const all = new Set<string>();
     const collect = (node: FolderTreeNode) => {
       all.add(node.path);
       node.subfolders.forEach(collect);
     };
     rawTree.folders.forEach(collect);
-    setCollapsedFolders(all);
+    setExpandedFolders(all);
+  };
+
+  const collapseAll = () => {
+    setExpandedFolders(new Set());
   };
 
   // Folder modal triggers
@@ -140,7 +141,6 @@ export const WatchlistCard: React.FC<WatchlistCardProps> = ({
   };
 
   const handleOpenDelete = (path: string) => {
-    if (isPathRootFolder(path)) return;
     setDeletingFolder(path);
     setDeleteWithComponents(false);
     setModalError(null);
@@ -189,8 +189,16 @@ export const WatchlistCard: React.FC<WatchlistCardProps> = ({
   const handleDeleteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!deletingFolder || !onDeleteFolder) return;
-    if (isPathRootFolder(deletingFolder)) {
-      setModalError('The root folder for this Figma file cannot be deleted.');
+    
+    // Check if folder contains components
+    const target = deletingFolder.trim().toLowerCase();
+    const hasComponents = components.some((c) => {
+      const p = (c.folder_path || '').trim().toLowerCase();
+      return p === target || p.startsWith(target + '/');
+    });
+
+    if (hasComponents && isPathRootFolder(deletingFolder)) {
+      setModalError('The root folder for this Figma file cannot be deleted while it contains components.');
       return;
     }
     setIsSubmittingModal(true);
@@ -208,8 +216,9 @@ export const WatchlistCard: React.FC<WatchlistCardProps> = ({
   // Recursive tree node renderer
   const renderFolderNode = (node: FolderTreeNode) => {
     const isSearching = searchQuery.trim().length > 0;
-    // When searching, matching folders stay expanded automatically
-    const isCollapsed = isSearching ? false : collapsedFolders.has(node.path);
+    // When searching, matching folders stay expanded automatically; otherwise default to collapsed
+    const isExpanded = isSearching ? true : expandedFolders.has(node.path);
+    const isCollapsed = !isExpanded;
     const isRootFolder = node.depth === 0 || isPathRootFolder(node.path);
 
     return (
@@ -231,7 +240,12 @@ export const WatchlistCard: React.FC<WatchlistCardProps> = ({
             >
               {isCollapsed ? '▶' : '▼'}
             </button>
-            <span className="folder-icon">{isCollapsed ? '📁' : '📂'}</span>
+            <span
+              className="folder-icon"
+              style={isRootFolder ? { display: 'inline-flex', alignItems: 'center' } : undefined}
+            >
+              {isRootFolder ? <FigmaIcon size={13} /> : (isCollapsed ? '📁' : '📂')}
+            </span>
             <span className="folder-name" title={node.path}>
               {node.name}
             </span>
@@ -288,7 +302,7 @@ export const WatchlistCard: React.FC<WatchlistCardProps> = ({
               ✎
             </button>
 
-            {!isRootFolder && (
+            {node.totalComponentCount === 0 && (
               <button
                 type="button"
                 className="btn-mini folder-action-btn delete-btn"
@@ -700,63 +714,77 @@ export const WatchlistCard: React.FC<WatchlistCardProps> = ({
       )}
 
       {/* Modal: Delete Folder */}
-      {deletingFolder && (
-        <div className="modal">
-          <div className="modal-backdrop" onClick={() => setDeletingFolder(null)} />
-          <div className="modal-dialog">
-            <div className="modal-dialog-header">
-              <div className="modal-dialog-title">
-                <h2>Delete Folder</h2>
-                <p className="subtitle">Delete folder &quot;{deletingFolder}&quot;</p>
-              </div>
-              <button
-                type="button"
-                className="modal-dialog-close"
-                onClick={() => setDeletingFolder(null)}
-              >
-                &times;
-              </button>
-            </div>
-            <form onSubmit={handleDeleteSubmit}>
-              {modalError && <div className="banner error">{modalError}</div>}
-              <div className="form-group" style={{ marginBottom: '1.25rem' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={deleteWithComponents}
-                    onChange={(e) => setDeleteWithComponents(e.target.checked)}
-                  />
-                  <span>
-                    Also permanently delete all component(s) inside this folder
-                  </span>
-                </label>
-                {!deleteWithComponents && (
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.35rem', marginLeft: '1.5rem' }}>
-                    Components will be moved to the parent folder / root.
-                  </p>
-                )}
-              </div>
-              <div className="button-group-row">
-                <button
-                  type="submit"
-                  className="btn-primary btn-delete-danger"
-                  style={{ background: 'var(--accent-red)', borderColor: 'var(--accent-red)' }}
-                  disabled={isSubmittingModal}
-                >
-                  {isSubmittingModal ? 'Deleting...' : 'Delete Folder'}
-                </button>
+      {deletingFolder && (() => {
+        const target = deletingFolder.trim().toLowerCase();
+        const folderHasComps = components.some((c) => {
+          const p = (c.folder_path || '').trim().toLowerCase();
+          return p === target || p.startsWith(target + '/');
+        });
+
+        return (
+          <div className="modal">
+            <div className="modal-backdrop" onClick={() => setDeletingFolder(null)} />
+            <div className="modal-dialog">
+              <div className="modal-dialog-header">
+                <div className="modal-dialog-title">
+                  <h2>Delete Folder</h2>
+                  <p className="subtitle">Delete folder &quot;{deletingFolder}&quot;</p>
+                </div>
                 <button
                   type="button"
-                  className="btn-secondary"
+                  className="modal-dialog-close"
                   onClick={() => setDeletingFolder(null)}
                 >
-                  Cancel
+                  &times;
                 </button>
               </div>
-            </form>
+              <form onSubmit={handleDeleteSubmit}>
+                {modalError && <div className="banner error">{modalError}</div>}
+                {folderHasComps ? (
+                  <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={deleteWithComponents}
+                        onChange={(e) => setDeleteWithComponents(e.target.checked)}
+                      />
+                      <span>
+                        Also permanently delete all component(s) inside this folder
+                      </span>
+                    </label>
+                    {!deleteWithComponents && (
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.35rem', marginLeft: '1.5rem' }}>
+                        Components will be moved to the parent folder / root.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: '1.25rem' }}>
+                    This folder has no components and will be removed permanently.
+                  </p>
+                )}
+                <div className="button-group-row">
+                  <button
+                    type="submit"
+                    className="btn-primary btn-delete-danger"
+                    style={{ background: 'var(--accent-red)', borderColor: 'var(--accent-red)' }}
+                    disabled={isSubmittingModal}
+                  >
+                    {isSubmittingModal ? 'Deleting...' : 'Delete Folder'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => setDeletingFolder(null)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Quick Folder Picker for Component */}
       <FolderPickerModal

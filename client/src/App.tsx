@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Component,
-  FetchRecord,
   TokenStatusInfo,
   TransientStatus,
   BatchResultItem,
@@ -14,10 +13,10 @@ import { Header } from './components/Header';
 import { AuthCard } from './components/AuthCard';
 import { AddComponentCard } from './components/AddComponentCard';
 import { WatchlistCard } from './components/WatchlistCard';
-import { PreviewCard } from './components/PreviewCard';
 import { InspectPage } from './components/InspectPage';
 import { EditComponentModal } from './components/EditComponentModal';
 import { ZoomModal } from './components/ZoomModal';
+import { HistoryModal } from './components/HistoryModal';
 
 function parseRoute(pathname: string): { page: 'home' | 'inspect'; componentId?: number } {
   const match = pathname.match(/^\/inspect\/(\d+)/);
@@ -63,11 +62,10 @@ export const App: React.FC = () => {
   const [saveToLocalStorage, setSaveToLocalStorage] = useState<boolean>(true);
   const [hasDefaultToken, setHasDefaultToken] = useState<boolean>(false);
 
-  // --- Watchlist & Active Inspection State ---
+  // --- Watchlist State ---
   const [components, setComponents] = useState<Component[]>([]);
   const [folders, setFolders] = useState<string[]>([]);
   const [activeComponentId, setActiveComponentId] = useState<number | null>(null);
-  const [activeFetch, setActiveFetch] = useState<FetchRecord | null>(null);
   const [transientStatuses, setTransientStatuses] = useState<Map<number, TransientStatus>>(
     new Map()
   );
@@ -98,9 +96,7 @@ export const App: React.FC = () => {
   const [isZoomOpen, setIsZoomOpen] = useState(false);
   const [zoomImageSrc, setZoomImageSrc] = useState<string | null>(null);
 
-  // --- Derived Active Component ---
-  const activeComponent =
-    components.find((c) => c.id === activeComponentId) || null;
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   // --- Token Status ---
   const tokenStatus: TokenStatusInfo = React.useMemo(() => {
@@ -160,7 +156,6 @@ export const App: React.FC = () => {
         const target = list.find((c) => c.id === selectId);
         if (target) {
           setActiveComponentId(target.id);
-          setActiveFetch(target.latestFetch || null);
           setFormPrefill({
             fileKey: target.file_key,
             fileName: target.file_name,
@@ -176,7 +171,6 @@ export const App: React.FC = () => {
         setActiveComponentId((currentActiveId) => {
           if (!currentActiveId) {
             const firstWithFetch = list.find((c) => c.latestFetch) || list[0];
-            setActiveFetch(firstWithFetch.latestFetch || null);
             setFormPrefill({
               fileKey: firstWithFetch.file_key,
               fileName: firstWithFetch.file_name,
@@ -212,7 +206,6 @@ export const App: React.FC = () => {
   // --- Component Selection ---
   const handleSelectComponent = async (comp: Component) => {
     setActiveComponentId(comp.id);
-    setActiveFetch(comp.latestFetch || null);
     setFormPrefill({
       fileKey: comp.file_key,
       fileName: comp.file_name,
@@ -270,7 +263,6 @@ export const App: React.FC = () => {
 
       await loadComponents(result.component.id);
       setActiveComponentId(result.component.id);
-      setActiveFetch(result.currentFetch);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       setFormError(`Request error: ${msg}`);
@@ -352,7 +344,6 @@ export const App: React.FC = () => {
 
       await loadComponents(comp.id);
       setActiveComponentId(comp.id);
-      setActiveFetch(result.currentFetch);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       setFormError(`Fetch failed: ${msg}`);
@@ -380,7 +371,6 @@ export const App: React.FC = () => {
       await api.deleteComponent(comp.id);
       if (activeComponentId === comp.id) {
         setActiveComponentId(null);
-        setActiveFetch(null);
       }
       await loadComponents();
     } catch (err: unknown) {
@@ -448,7 +438,10 @@ export const App: React.FC = () => {
   };
 
   // --- Batch Check Components (All or Folder) ---
-  const runBatchCheckFor = async (targetComponents: Component[]) => {
+  const runBatchCheckFor = async (
+    targetComponents: Component[],
+    targetMeta: { triggerType: 'all' | 'folder'; targetName: string }
+  ) => {
     setFormError(null);
     setFormInfo(null);
 
@@ -467,6 +460,19 @@ export const App: React.FC = () => {
 
     setIsBatchChecking(true);
     setBatchSummary(null);
+
+    // Create session run record
+    let runId: number | undefined;
+    try {
+      const run = await api.startFetchRun({
+        triggerType: targetMeta.triggerType,
+        targetName: targetMeta.targetName,
+        totalItems: targetComponents.length
+      });
+      runId = run.id;
+    } catch (e) {
+      console.warn('Could not start tracked run session:', e);
+    }
 
     // Mark targets as queued
     setTransientStatuses((prev) => {
@@ -489,7 +495,7 @@ export const App: React.FC = () => {
       });
 
       try {
-        const res = await api.fetchComponentWatchlist(comp.id, activeToken || undefined);
+        const res = await api.fetchComponentWatchlist(comp.id, activeToken || undefined, runId);
         const status = res.currentFetch.change_status;
         if (status === 'changed') changedCount++;
         else if (status === 'unchanged') unchangedCount++;
@@ -533,6 +539,20 @@ export const App: React.FC = () => {
     setBatchSummary(summary);
     setBatchResults(results);
 
+    if (runId) {
+      try {
+        await api.completeFetchRun(runId, {
+          totalItems: targetComponents.length,
+          changedCount,
+          unchangedCount,
+          baselineCount,
+          errorCount
+        });
+      } catch (e) {
+        console.warn('Could not complete tracked run session:', e);
+      }
+    }
+
     // Pick first changed or first success
     const firstChanged = results.find(
       (r) => r.success && r.currentFetch?.change_status === 'changed'
@@ -549,12 +569,19 @@ export const App: React.FC = () => {
   };
 
   const handleCheckAll = async () => {
-    await runBatchCheckFor(components);
+    await runBatchCheckFor(components, {
+      triggerType: 'all',
+      targetName: 'All Components'
+    });
   };
 
   const handleCheckFolder = async (componentIds: number[]) => {
     const subset = components.filter((c) => componentIds.includes(c.id));
-    await runBatchCheckFor(subset);
+    const folderName = subset[0]?.folder_path || 'Folder Components';
+    await runBatchCheckFor(subset, {
+      triggerType: 'folder',
+      targetName: folderName
+    });
   };
 
   // --- Zoom Modal Handler ---
@@ -590,11 +617,11 @@ export const App: React.FC = () => {
   return (
     <div className="app-container">
       {/* Header */}
-      <Header tokenStatus={tokenStatus} />
+      <Header tokenStatus={tokenStatus} onOpenHistory={() => setIsHistoryOpen(true)} />
 
       {/* Main Grid */}
       <main className="main-grid">
-        {/* Left Column: Controls & Watchlist */}
+        {/* Left Column: Configuration & Add Component */}
         <section className="panel control-panel">
           {/* 1. Auth Card */}
           <AuthCard
@@ -621,8 +648,10 @@ export const App: React.FC = () => {
             }}
             initialValues={formPrefill}
           />
+        </section>
 
-          {/* 3. Watchlist Card */}
+        {/* Right Column: Tracked Components Watchlist */}
+        <section className="panel display-panel">
           <WatchlistCard
             components={components}
             activeComponentId={activeComponentId}
@@ -649,31 +678,6 @@ export const App: React.FC = () => {
             }}
           />
         </section>
-
-        {/* Right Column: Component Display, Auto-Diff & Fetch History */}
-        <section className="panel display-panel">
-          <PreviewCard
-            component={activeComponent}
-            currentFetch={activeFetch}
-            isLoading={isFetchingForm && !isBatchChecking}
-            onOpenCompare={() => {
-              if (activeComponent) {
-                navigateToInspect(activeComponent.id);
-              }
-            }}
-            onRefetchCurrent={() => {
-              if (activeComponent) {
-                handleFetchComponent(activeComponent);
-              }
-            }}
-            onEditCurrent={() => {
-              if (activeComponent) {
-                handleOpenEdit(activeComponent);
-              }
-            }}
-            onOpenZoom={handleOpenZoom}
-          />
-        </section>
       </main>
 
       {/* Edit Component Modal */}
@@ -698,6 +702,14 @@ export const App: React.FC = () => {
           setIsZoomOpen(false);
           setZoomImageSrc(null);
         }}
+      />
+
+      {/* History & Collab Report Modal */}
+      <HistoryModal
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        onOpenZoom={handleOpenZoom}
+        onNavigateToInspect={(id) => navigateToInspect(id)}
       />
     </div>
   );
