@@ -10,17 +10,41 @@ import {
   BatchResponse,
   FetchRecord,
   FetchRun,
-  RunDetailsResponse
+  RunDetailsResponse,
+  CollabConfig,
+  VerifyParentResponse,
+  PublishCollabPayload,
+  PublishCollabResponse
 } from '../types';
 
 const API_BASE = '/api';
 
+async function handleApiResponse(res: Response, defaultErrorMessage: string) {
+  const contentType = res.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    const data = await res.json();
+    if (!res.ok || (data && data.success === false)) {
+      throw new Error(data?.error || defaultErrorMessage);
+    }
+    return data;
+  }
+  const text = await res.text();
+  if (!res.ok) {
+    if (res.status === 404) {
+      throw new Error(`API endpoint not found (404). Please restart the backend server to load new routes.`);
+    }
+    throw new Error(`Server returned status ${res.status}: ${text.slice(0, 150)}`);
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(defaultErrorMessage);
+  }
+}
+
 export async function getAppConfig(): Promise<AppConfig> {
   const res = await fetch(`${API_BASE}/config`);
-  if (!res.ok) {
-    throw new Error(`Failed to load app config: ${res.statusText}`);
-  }
-  return res.json();
+  return handleApiResponse(res, 'Failed to load app config');
 }
 
 export async function checkToken(token?: string): Promise<{ valid: boolean; message?: string }> {
@@ -284,3 +308,33 @@ export async function getComponentCompare(
     fetchB
   };
 }
+
+export async function getCollabConfig(): Promise<CollabConfig> {
+  const res = await fetch(`${API_BASE}/collab/config`);
+  return handleApiResponse(res, 'Failed to fetch Collab configuration.');
+}
+
+export async function verifyCollabParent(
+  parentPageId: string,
+  collabUrl?: string,
+  token?: string
+): Promise<VerifyParentResponse> {
+  const res = await fetch(`${API_BASE}/collab/verify-parent`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ parentPageId, collabUrl, token })
+  });
+  return handleApiResponse(res, 'Failed to verify parent page on Collab.');
+}
+
+export async function publishCollabReport(
+  payload: PublishCollabPayload
+): Promise<PublishCollabResponse> {
+  const res = await fetch(`${API_BASE}/collab/publish-report`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  return handleApiResponse(res, 'Failed to publish report to Collab.');
+}
+

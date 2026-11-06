@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { FetchRun, RunDetailsResponse } from '../types';
 import * as api from '../services/api';
+import { PublishCollabModal } from './PublishCollabModal';
 
 interface HistoryModalProps {
   isOpen: boolean;
@@ -23,6 +24,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [filterStatus, setFilterStatus] = useState<'all' | 'changed' | 'unchanged' | 'baseline'>('all');
   const [copiedReport, setCopiedReport] = useState(false);
+  const [isPublishCollabOpen, setIsPublishCollabOpen] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -214,16 +216,38 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
                       </button>
                     </div>
 
-                    {/* Copy Report Button */}
-                    <button
-                      type="button"
-                      className="btn-pill"
-                      onClick={handleCopyMarkdown}
-                      title="Copy full markdown report with images ready to paste into Confluence, Jira or Teams"
-                      style={{ padding: '0.4rem 0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem' }}
-                    >
-                      {copiedReport ? '✓ Report Copied!' : '📋 Copy Collab Report'}
-                    </button>
+                    {/* Collab Publish & Copy Report Buttons */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <button
+                        type="button"
+                        className="btn-pill"
+                        onClick={() => setIsPublishCollabOpen(true)}
+                        title="Publish full report with multiple decks and snapshots to an internal Collab page"
+                        style={{
+                          padding: '0.4rem 0.85rem',
+                          fontWeight: 600,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.35rem',
+                          background: 'var(--accent-blue)',
+                          color: '#fff',
+                          border: 'none',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        🚀 Publish to Collab
+                      </button>
+
+                      <button
+                        type="button"
+                        className="btn-pill"
+                        onClick={handleCopyMarkdown}
+                        title="Copy full markdown report with images ready to paste into Confluence, Jira or Teams"
+                        style={{ padding: '0.4rem 0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                      >
+                        {copiedReport ? '✓ Copied!' : '📋 Copy Markdown'}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -349,6 +373,14 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Collab Publish Popup Modal */}
+      <PublishCollabModal
+        isOpen={isPublishCollabOpen}
+        onClose={() => setIsPublishCollabOpen(false)}
+        run={selectedRun || null}
+        runDetails={runDetails}
+      />
     </div>
   );
 };

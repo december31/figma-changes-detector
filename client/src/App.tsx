@@ -14,11 +14,19 @@ import { AuthCard } from './components/AuthCard';
 import { AddComponentCard } from './components/AddComponentCard';
 import { WatchlistCard } from './components/WatchlistCard';
 import { InspectPage } from './components/InspectPage';
+import { HistoryReportPage } from './components/HistoryReportPage';
 import { EditComponentModal } from './components/EditComponentModal';
 import { ZoomModal } from './components/ZoomModal';
-import { HistoryModal } from './components/HistoryModal';
 
-function parseRoute(pathname: string): { page: 'home' | 'inspect'; componentId?: number } {
+type AppRoute = {
+  page: 'home' | 'inspect' | 'history';
+  componentId?: number;
+};
+
+function parseRoute(pathname: string): AppRoute {
+  if (pathname === '/history' || pathname.startsWith('/history/')) {
+    return { page: 'history' };
+  }
   const match = pathname.match(/^\/inspect\/(\d+)/);
   if (match) {
     return { page: 'inspect', componentId: parseInt(match[1], 10) };
@@ -28,7 +36,7 @@ function parseRoute(pathname: string): { page: 'home' | 'inspect'; componentId?:
 
 export const App: React.FC = () => {
   // --- Routing State ---
-  const [route, setRoute] = useState<{ page: 'home' | 'inspect'; componentId?: number }>(() =>
+  const [route, setRoute] = useState<AppRoute>(() =>
     parseRoute(window.location.pathname)
   );
 
@@ -46,6 +54,14 @@ export const App: React.FC = () => {
       window.history.pushState({}, '', newPath);
     }
     setRoute({ page: 'inspect', componentId });
+  };
+
+  const navigateToHistory = () => {
+    const newPath = '/history';
+    if (window.location.pathname !== newPath) {
+      window.history.pushState({}, '', newPath);
+    }
+    setRoute({ page: 'history' });
   };
 
   const navigateToHome = () => {
@@ -95,8 +111,6 @@ export const App: React.FC = () => {
 
   const [isZoomOpen, setIsZoomOpen] = useState(false);
   const [zoomImageSrc, setZoomImageSrc] = useState<string | null>(null);
-
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   // --- Token Status ---
   const tokenStatus: TokenStatusInfo = React.useMemo(() => {
@@ -614,10 +628,32 @@ export const App: React.FC = () => {
     );
   }
 
+  // If on /history page, render the full Running History & Report Page
+  if (route.page === 'history') {
+    return (
+      <div className="app-container">
+        <HistoryReportPage
+          onBack={navigateToHome}
+          onOpenZoom={handleOpenZoom}
+          onNavigateToInspect={(id) => navigateToInspect(id)}
+        />
+        {/* Lightbox Zoom Modal */}
+        <ZoomModal
+          isOpen={isZoomOpen}
+          imageSrc={zoomImageSrc}
+          onClose={() => {
+            setIsZoomOpen(false);
+            setZoomImageSrc(null);
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="app-container">
       {/* Header */}
-      <Header tokenStatus={tokenStatus} onOpenHistory={() => setIsHistoryOpen(true)} />
+      <Header tokenStatus={tokenStatus} onOpenHistory={navigateToHistory} />
 
       {/* Main Grid */}
       <main className="main-grid">
@@ -702,14 +738,6 @@ export const App: React.FC = () => {
           setIsZoomOpen(false);
           setZoomImageSrc(null);
         }}
-      />
-
-      {/* History & Collab Report Modal */}
-      <HistoryModal
-        isOpen={isHistoryOpen}
-        onClose={() => setIsHistoryOpen(false)}
-        onOpenZoom={handleOpenZoom}
-        onNavigateToInspect={(id) => navigateToInspect(id)}
       />
     </div>
   );

@@ -8,6 +8,7 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const componentRoutes = require('./src/routes/componentRoutes');
 const figmaRoutes = require('./src/routes/figmaRoutes');
+const collabRoutes = require('./src/routes/collabRoutes');
 const { compareWithPreviousFetch } = require('./src/services/diffService');
 
 // Accommodate enterprise SSL inspection / corporate proxies if not explicitly configured
@@ -33,6 +34,7 @@ app.use('/assets', express.static(assetsDir));
 
 // Mount modular feature routes
 app.use('/api/components', componentRoutes);
+app.use('/api/collab', collabRoutes);
 app.use('/api', figmaRoutes);
 
 // Frontend static serving: serve client/dist when built, fallback to server/public/

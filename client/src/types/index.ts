@@ -200,3 +200,40 @@ export interface TransientStatus {
   status: 'queued' | 'loading';
   label?: string;
 }
+
+export interface CollabConfig {
+  success: boolean;
+  collabUrl: string;
+  hasToken: boolean;
+}
+
+export interface VerifyParentResponse {
+  success: boolean;
+  pageId: string;
+  title: string;
+  spaceKey: string;
+  spaceName: string;
+  url: string;
+  error?: string;
+}
+
+export interface PublishCollabPayload {
+  runId: number;
+  parentPageId: string;
+  pageTitle?: string;
+  collabUrl?: string;
+  token?: string;
+}
+
+export interface PublishCollabResponse {
+  success: boolean;
+  pageId: string;
+  title: string;
+  spaceKey: string;
+  parentTitle: string;
+  pageUrl: string;
+  totalAttached: number;
+  itemsCount: number;
+  error?: string;
+}
+
