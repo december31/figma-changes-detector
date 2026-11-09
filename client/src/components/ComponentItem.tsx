@@ -13,7 +13,6 @@ interface ComponentItemProps {
   onFetch: (comp: Component) => void;
   onEdit: (comp: Component) => void;
   onDelete: (comp: Component) => void;
-  onChangeFolder?: (comp: Component) => void;
 }
 
 export const ComponentItem: React.FC<ComponentItemProps> = React.memo(({

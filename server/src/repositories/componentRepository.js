@@ -111,6 +111,16 @@ function initDb(targetDbPath) {
   } catch (e) {}
 }
 
+function checkpointDb() {
+  if (db) {
+    try {
+      db.exec('PRAGMA wal_checkpoint(PASSIVE);');
+    } catch (e) {
+      console.warn('Error executing wal_checkpoint:', e.message);
+    }
+  }
+}
+
 // Subscribe to database switch events from dataSourceManager
 dataSourceManager.setOnDatabaseSwitch((newPath) => {
   initDb(newPath);
@@ -168,32 +178,13 @@ function createFolder(pathStr) {
 }
 
 function resolveSemiRootFolder(fileName, existingFolders = [], currentSubfolder = '') {
-  if (!fileName || !fileName.trim()) return currentSubfolder ? normalizeFolderPath(currentSubfolder) : '';
-  const cleanFileName = fileName.trim();
-
-  // Find if a root folder already exists matching this file name (case-insensitive)
-  const existingRoot = existingFolders.find(
-    (f) => f.split('/')[0].toLowerCase() === cleanFileName.toLowerCase()
-  );
-
-  const rootName = existingRoot ? existingRoot.split('/')[0] : cleanFileName;
-
-  if (!currentSubfolder || !currentSubfolder.trim()) {
-    return rootName;
+  if (fileName && fileName.trim()) {
+    return fileName.trim();
   }
-
-  const cleanSub = normalizeFolderPath(currentSubfolder);
-  if (!cleanSub) return rootName;
-
-  // If currentSubfolder already starts with rootName, return as-is
-  if (cleanSub.toLowerCase() === rootName.toLowerCase()) {
-    return rootName;
+  if (currentSubfolder && currentSubfolder.trim()) {
+    return currentSubfolder.trim().split('/')[0];
   }
-  if (cleanSub.toLowerCase().startsWith(rootName.toLowerCase() + '/')) {
-    return cleanSub;
-  }
-
-  return `${rootName}/${cleanSub}`;
+  return 'Figma Document';
 }
 
 function parseFigmaUrl(urlStr) {
@@ -649,5 +640,6 @@ module.exports = {
   completeFetchRun,
   getFetchRunById,
   getAllFetchRuns,
-  getFetchRunDetails
+  getFetchRunDetails,
+  checkpointDb
 };

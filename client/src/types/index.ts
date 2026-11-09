@@ -223,6 +223,7 @@ export interface PublishCollabPayload {
   pageTitle?: string;
   collabUrl?: string;
   token?: string;
+  attachWorkspace?: boolean;
 }
 
 export interface PublishCollabResponse {
@@ -234,6 +235,7 @@ export interface PublishCollabResponse {
   pageUrl: string;
   totalAttached: number;
   itemsCount: number;
+  attachedWorkspace?: string | null;
   error?: string;
 }
 

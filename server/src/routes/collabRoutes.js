@@ -34,7 +34,7 @@ router.post('/verify-parent', async (req, res) => {
 // POST /api/collab/publish-report - Publish run report to Collab
 router.post('/publish-report', async (req, res) => {
   try {
-    const { runId, parentPageId, pageTitle, collabUrl, token } = req.body || {};
+    const { runId, parentPageId, pageTitle, collabUrl, token, attachWorkspace } = req.body || {};
 
     if (!runId) {
       return res.status(400).json({ success: false, error: 'Run ID is required.' });
@@ -48,7 +48,8 @@ router.post('/publish-report', async (req, res) => {
       parentPageId,
       pageTitle,
       collabUrl,
-      token
+      token,
+      attachWorkspace
     });
 
     res.json(result);

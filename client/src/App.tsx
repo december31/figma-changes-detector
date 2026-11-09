@@ -82,7 +82,6 @@ export const App: React.FC = () => {
 
   // --- Watchlist State ---
   const [components, setComponents] = useState<Component[]>([]);
-  const [folders, setFolders] = useState<string[]>([]);
   const [activeComponentId, setActiveComponentId] = useState<number | null>(null);
   const [transientStatuses, setTransientStatuses] = useState<Map<number, TransientStatus>>(
     new Map()
@@ -184,12 +183,8 @@ export const App: React.FC = () => {
   // --- Initial Config & Watchlist Load ---
   const loadComponents = useCallback(async (selectId?: number | null) => {
     try {
-      const [list, folderList] = await Promise.all([
-        api.getComponents(),
-        api.getFolders()
-      ]);
+      const list = await api.getComponents();
       setComponents(list);
-      setFolders(folderList);
 
       if (selectId) {
         const target = list.find((c) => c.id === selectId);
@@ -271,6 +266,11 @@ export const App: React.FC = () => {
     setFormError(null);
     setFormInfo(null);
 
+    if (!formData.name || !formData.name.trim()) {
+      setFormError('Component Label is required.');
+      return;
+    }
+
     const activeToken = token.trim();
     if (!activeToken && !hasDefaultToken) {
       setFormError(
@@ -290,7 +290,7 @@ export const App: React.FC = () => {
         fileKey: formData.fileKey,
         fileName: formData.fileName,
         nodeId: formData.nodeId,
-        name: formData.name,
+        name: formData.name.trim(),
         format: formData.format,
         scale: formData.scale,
         figmaUrl: formData.figmaUrl,
@@ -325,6 +325,11 @@ export const App: React.FC = () => {
     setFormError(null);
     setFormInfo(null);
 
+    if (!formData.name || !formData.name.trim()) {
+      setFormError('Component Label is required.');
+      return;
+    }
+
     if (!formData.fileKey || !formData.nodeId) {
       setFormError(
         'Please provide both File Key and Node ID (or paste a Figma link) to add to the watchlist.'
@@ -334,7 +339,7 @@ export const App: React.FC = () => {
 
     try {
       const res = await api.createComponent({
-        name: formData.name,
+        name: formData.name.trim(),
         fileKey: formData.fileKey,
         fileName: formData.fileName,
         nodeId: formData.nodeId,
@@ -453,29 +458,6 @@ export const App: React.FC = () => {
     }
   };
 
-  // --- Folder Management ---
-  const handleCreateFolder = async (path: string) => {
-    await api.createFolder(path);
-    const updated = await api.getFolders();
-    setFolders(updated);
-  };
-
-  const handleRenameFolder = async (oldPath: string, newPath: string) => {
-    await api.renameFolder(oldPath, newPath);
-    await loadComponents(activeComponentId);
-  };
-
-  const handleDeleteFolder = async (path: string, deleteComponents: boolean = false) => {
-    await api.deleteFolder(path, deleteComponents);
-    await loadComponents(activeComponentId);
-  };
-
-  const handleSelectFolderForAdd = (folderPath: string) => {
-    setFormPrefill((prev) => ({
-      ...prev,
-      folderPath
-    }));
-  };
 
   // --- Batch Check Components (All or Folder) ---
   const runBatchCheckFor = async (
@@ -617,7 +599,7 @@ export const App: React.FC = () => {
 
   const handleCheckFolder = async (componentIds: number[]) => {
     const subset = components.filter((c) => componentIds.includes(c.id));
-    const folderName = subset[0]?.folder_path || 'Folder Components';
+    const folderName = subset[0]?.file_name || subset[0]?.folder_path || 'File Components';
     await runBatchCheckFor(subset, {
       triggerType: 'folder',
       targetName: folderName
@@ -703,9 +685,6 @@ export const App: React.FC = () => {
           <AddComponentCard
             onFetchNow={handleFetchNow}
             onAddToWatchlist={handleAddToWatchlist}
-            folders={folders}
-            onCreateFolder={handleCreateFolder}
-            onDeleteFolder={(p) => handleDeleteFolder(p, false)}
             isFetching={isFetchingForm}
             errorMessage={formError}
             infoMessage={formInfo}
@@ -723,26 +702,18 @@ export const App: React.FC = () => {
             components={components}
             activeComponentId={activeComponentId}
             transientStatuses={transientStatuses}
-            folders={folders}
             isBatchChecking={isBatchChecking}
             batchSummary={batchSummary}
             batchResults={batchResults}
             onClearBatchResults={() => setBatchResults(null)}
             onCheckAll={handleCheckAll}
             onCheckFolder={handleCheckFolder}
-            onCreateFolder={handleCreateFolder}
-            onRenameFolder={handleRenameFolder}
-            onDeleteFolder={handleDeleteFolder}
-            onSelectFolderForAdd={handleSelectFolderForAdd}
             onSelectComponent={handleSelectComponent}
             onInspectComponent={(comp) => handleInspectComponent(comp)}
             onFetchComponent={handleFetchComponent}
             onEditComponent={handleOpenEdit}
             onDeleteComponent={handleDeleteComponent}
             onInspectBatchItem={handleInspectBatchItem}
-            onUpdateComponentFolder={async (id, folderPath) => {
-              await handleSaveEdit(id, { folderPath });
-            }}
           />
         </section>
       </main>
@@ -751,9 +722,6 @@ export const App: React.FC = () => {
       <EditComponentModal
         isOpen={isEditOpen}
         component={editingComponent}
-        folders={folders}
-        onCreateFolder={handleCreateFolder}
-        onDeleteFolder={(p) => handleDeleteFolder(p, false)}
         onClose={() => {
           setIsEditOpen(false);
           setEditingComponent(null);

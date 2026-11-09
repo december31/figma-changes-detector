@@ -4,7 +4,8 @@ const fs = require('fs');
 const { PNG } = require('pngjs');
 const pixelmatchModule = require('pixelmatch');
 const pixelmatch = pixelmatchModule.default || pixelmatchModule;
-const { getFetchRunDetails } = require('../repositories/componentRepository');
+const { getFetchRunDetails, checkpointDb } = require('../repositories/componentRepository');
+const dataSourceManager = require('./dataSourceManager');
 
 const { diffsDir, resolveAssetPath } = require('../config/paths');
 
@@ -160,14 +161,17 @@ function resolveDiskPath(webPath) {
 }
 
 /**
- * Uploads a local file as an attachment to a Confluence page
+ * Uploads a local file or buffer as an attachment to a Confluence page
  */
-async function uploadAttachment({ baseUrl, token, pageId, diskPath, attachmentName, comment }) {
-  if (!diskPath || !fs.existsSync(diskPath)) return null;
+async function uploadAttachment({ baseUrl, token, pageId, diskPath, buffer, attachmentName, comment, contentType = 'image/png' }) {
+  let fileBuffer = buffer;
+  if (!fileBuffer) {
+    if (!diskPath || !fs.existsSync(diskPath)) return null;
+    fileBuffer = fs.readFileSync(diskPath);
+  }
 
   try {
-    const fileBuffer = fs.readFileSync(diskPath);
-    const blob = new Blob([fileBuffer], { type: 'image/png' });
+    const blob = new Blob([fileBuffer], { type: contentType });
     const formData = new FormData();
     formData.append('file', blob, attachmentName);
     if (comment) formData.append('comment', comment);
@@ -200,7 +204,7 @@ async function uploadAttachment({ baseUrl, token, pageId, diskPath, attachmentNa
 /**
  * Generates Confluence Storage Format XHTML with multiple decks for each Figma file
  */
-function buildCollabStorageXml({ run, items, attachmentsMap }) {
+function buildCollabStorageXml({ run, items, attachmentsMap, workspaceAttachmentName }) {
   // Group items by Figma File
   const fileGroups = [];
   const fileMap = new Map();
@@ -251,6 +255,22 @@ function buildCollabStorageXml({ run, items, attachmentsMap }) {
   xml += `<span style="display: inline-block; background-color: #DEEBFF; color: #0747A6; padding: 2px 8px; border-radius: 3px; font-weight: bold;">🔵 ${run.baseline_count} Baseline</span>`;
   xml += `</td>`;
   xml += `</tr>`;
+
+  if (workspaceAttachmentName) {
+    xml += `<tr>`;
+    xml += `<td colspan="3" style="border: none; border-top: 1px solid #DFE1E6; padding: 8px 12px; background-color: #FAFBFC;">`;
+    xml += `<p style="margin: 0; font-size: 13px;">`;
+    xml += `<strong>📦 Attached Workspace Bundle:</strong> `;
+    xml += `<ac:link>`;
+    xml += `<ri:attachment ri:filename="${escapeHtml(workspaceAttachmentName)}" />`;
+    xml += `<ac:plain-text-link-body><![CDATA[${workspaceAttachmentName}]]></ac:plain-text-link-body>`;
+    xml += `</ac:link>`;
+    xml += ` <span style="font-size: 11px; color: #6B778C;">(Download and import into <em>Figma Changes Detector</em> to inspect all components and snapshots locally)</span>`;
+    xml += `</p>`;
+    xml += `</td>`;
+    xml += `</tr>`;
+  }
+
   xml += `</tbody>`;
   xml += `</table>`;
   xml += `</ac:rich-text-body>`;
@@ -426,7 +446,8 @@ async function publishReportToCollab({
   parentPageId,
   pageTitle,
   collabUrl,
-  token
+  token,
+  attachWorkspace = true
 }) {
   const normalizedRunId = Number(runId);
   const runDetails = getFetchRunDetails(normalizedRunId);
@@ -493,9 +514,39 @@ async function publishReportToCollab({
   const createdPage = await createRes.json();
   const newPageId = createdPage.id;
 
-  // 4. Process and upload image attachments to the new page
+  // 4. Process and upload image attachments and workspace bundle to the new page
   const attachmentsMap = new Map();
   const uploadTasks = [];
+  let attachedWorkspaceName = null;
+
+  if (attachWorkspace !== false) {
+    uploadTasks.push(async () => {
+      try {
+        if (typeof checkpointDb === 'function') {
+          checkpointDb();
+        }
+        const activeDs = dataSourceManager.getActiveDataSource();
+        const exported = dataSourceManager.exportDataSourceZip(activeDs ? activeDs.id : undefined);
+        if (exported && exported.buffer) {
+          const zipName = exported.filename || `Workspace_Run_${run.id}.zip`;
+          const att = await uploadAttachment({
+            baseUrl,
+            token: activeToken,
+            pageId: newPageId,
+            buffer: exported.buffer,
+            attachmentName: zipName,
+            comment: `Workspace bundle: ${activeDs ? activeDs.name : 'Workspace'} (Run #${run.id})`,
+            contentType: 'application/zip'
+          });
+          if (att) {
+            attachedWorkspaceName = zipName;
+          }
+        }
+      } catch (err) {
+        console.warn('Could not export/attach workspace bundle to Collab:', err.message);
+      }
+    });
+  }
 
   for (const item of items) {
     // Current snapshot image
@@ -562,8 +613,13 @@ async function publishReportToCollab({
     await Promise.all(chunk.map((fn) => fn()));
   }
 
-  // 5. Build full Confluence Storage XHTML with decks and embedded attachments
-  const storageXml = buildCollabStorageXml({ run, items, attachmentsMap });
+  // 5. Build full Confluence Storage XHTML with decks, embedded attachments, and attached workspace
+  const storageXml = buildCollabStorageXml({
+    run,
+    items,
+    attachmentsMap,
+    workspaceAttachmentName: attachedWorkspaceName
+  });
 
   // 6. Update the page with the final report content (version 2)
   const updatePayload = {
@@ -607,8 +663,9 @@ async function publishReportToCollab({
     spaceKey: parent.spaceKey,
     parentTitle: parent.title,
     pageUrl,
-    totalAttached: attachmentsMap.size,
-    itemsCount: items.length
+    totalAttached: attachmentsMap.size + (attachedWorkspaceName ? 1 : 0),
+    itemsCount: items.length,
+    attachedWorkspace: attachedWorkspaceName
   };
 }
 

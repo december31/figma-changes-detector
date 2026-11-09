@@ -2,14 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { Component, UpdateComponentPayload } from '../types';
 import { parseFigmaUrl } from '../utils';
-import { FolderPickerModal } from './FolderPickerModal';
 
 interface EditComponentModalProps {
   isOpen: boolean;
   component: Component | null;
-  folders?: string[];
-  onCreateFolder?: (path: string) => Promise<void>;
-  onDeleteFolder?: (path: string) => Promise<void>;
   onClose: () => void;
   onSave: (id: number, payload: UpdateComponentPayload) => Promise<void>;
 }
@@ -17,15 +13,11 @@ interface EditComponentModalProps {
 export const EditComponentModal: React.FC<EditComponentModalProps> = ({
   isOpen,
   component,
-  folders = [],
-  onCreateFolder,
-  onDeleteFolder,
   onClose,
   onSave
 }) => {
   const [name, setName] = useState('');
   const [fileName, setFileName] = useState('');
-  const [folderPath, setFolderPath] = useState('');
   const [fileKey, setFileKey] = useState('');
   const [nodeId, setNodeId] = useState('');
   const [format, setFormat] = useState('png');
@@ -33,13 +25,11 @@ export const EditComponentModal: React.FC<EditComponentModalProps> = ({
   const [figmaUrl, setFigmaUrl] = useState('');
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [isFolderPickerOpen, setIsFolderPickerOpen] = useState(false);
 
   useEffect(() => {
     if (component) {
       setName(component.name || '');
       setFileName(component.file_name || '');
-      setFolderPath(component.folder_path || '');
       setFileKey(component.file_key || '');
       setNodeId(component.node_id || '');
       setFormat(component.format || 'png');
@@ -101,7 +91,7 @@ export const EditComponentModal: React.FC<EditComponentModalProps> = ({
         format,
         scale: Number(scale) || 2,
         figmaUrl: figmaUrl.trim(),
-        folderPath: folderPath.trim()
+        folderPath: fileName.trim() || 'Figma Document'
       });
       onClose();
     } catch (err: unknown) {
@@ -158,39 +148,6 @@ export const EditComponentModal: React.FC<EditComponentModalProps> = ({
               placeholder="Auto-detected from Figma link"
               className="input-immutable"
             />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="editFolderPath">Folder in Figma File</label>
-            <div className="folder-picker-control">
-              <button
-                type="button"
-                id="editFolderPath"
-                className="folder-display-box"
-                onClick={() => setIsFolderPickerOpen(true)}
-                title="Click to choose or create folder"
-              >
-                <span className="folder-display-icon">📁</span>
-                <span className="folder-display-text">
-                  {folderPath
-                    ? folderPath
-                    : fileName
-                    ? `${fileName} (File Root)`
-                    : 'No folder chosen'}
-                </span>
-                <span className="folder-picker-arrow">▾</span>
-              </button>
-              {folderPath && fileName && folderPath.toLowerCase() !== fileName.toLowerCase() && (
-                <button
-                  type="button"
-                  className="btn-folder-reset"
-                  onClick={() => setFolderPath(fileName)}
-                  title={`Reset to root folder "${fileName}"`}
-                >
-                  ↩ Reset to Root ({fileName})
-                </button>
-              )}
-            </div>
           </div>
 
           <div className="form-group">
@@ -293,19 +250,6 @@ export const EditComponentModal: React.FC<EditComponentModalProps> = ({
             </button>
           </div>
         </form>
-
-        <FolderPickerModal
-          isOpen={isFolderPickerOpen}
-          onClose={() => setIsFolderPickerOpen(false)}
-          fileName={fileName || component?.file_name || ''}
-          currentFolderPath={folderPath}
-          existingFolders={folders}
-          onSelectFolder={(newPath) => {
-            setFolderPath(newPath);
-          }}
-          onCreateFolder={onCreateFolder}
-          onDeleteFolder={onDeleteFolder}
-        />
       </div>
     </div>
   );

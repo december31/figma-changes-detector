@@ -467,7 +467,7 @@ export const HistoryReportPage: React.FC<HistoryReportPageProps> = ({
                             </div>
 
                             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                              📁 {item.file_name || 'Figma'} {item.folder_path ? `&bull; ${item.folder_path}` : ''}
+                              📁 {item.file_name || 'Figma'} {item.folder_path && item.folder_path !== item.file_name ? `&bull; ${item.folder_path}` : ''}
                             </div>
 
                             <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>

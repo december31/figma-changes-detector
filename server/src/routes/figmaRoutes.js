@@ -48,6 +48,13 @@ router.post('/figma/image', async (req, res) => {
       });
     }
 
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Component Label is required.'
+      });
+    }
+
     if (!fileKey || !fileKey.trim()) {
       return res.status(400).json({
         success: false,

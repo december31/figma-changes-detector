@@ -1,7 +1,6 @@
 // client/src/components/AddComponentCard.tsx
 import React, { useState } from 'react';
 import { parseFigmaUrl } from '../utils';
-import { FolderPickerModal } from './FolderPickerModal';
 
 interface AddComponentCardProps {
   onFetchNow: (formData: {
@@ -24,9 +23,6 @@ interface AddComponentCardProps {
     figmaUrl: string;
     folderPath?: string;
   }) => Promise<void>;
-  folders?: string[];
-  onCreateFolder?: (path: string) => Promise<void>;
-  onDeleteFolder?: (path: string) => Promise<void>;
   isFetching: boolean;
   errorMessage: string | null;
   infoMessage: string | null;
@@ -45,9 +41,6 @@ interface AddComponentCardProps {
 export const AddComponentCard: React.FC<AddComponentCardProps> = ({
   onFetchNow,
   onAddToWatchlist,
-  folders = [],
-  onCreateFolder,
-  onDeleteFolder,
   isFetching,
   errorMessage,
   infoMessage,
@@ -57,12 +50,11 @@ export const AddComponentCard: React.FC<AddComponentCardProps> = ({
   const [figmaUrl, setFigmaUrl] = useState('');
   const [fileName, setFileName] = useState(initialValues?.fileName || '');
   const [compCustomName, setCompCustomName] = useState(initialValues?.name || '');
-  const [folderPath, setFolderPath] = useState(initialValues?.folderPath || '');
   const [fileKey, setFileKey] = useState(initialValues?.fileKey || '');
   const [nodeId, setNodeId] = useState(initialValues?.nodeId || '');
   const [renderFormat, setRenderFormat] = useState(initialValues?.format || 'png');
   const [renderScale, setRenderScale] = useState(String(initialValues?.scale || 2));
-  const [isFolderPickerOpen, setIsFolderPickerOpen] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
 
   // Update fields when initialValues change from external selection
   React.useEffect(() => {
@@ -73,26 +65,34 @@ export const AddComponentCard: React.FC<AddComponentCardProps> = ({
       if (initialValues.name !== undefined) setCompCustomName(initialValues.name);
       if (initialValues.format !== undefined) setRenderFormat(initialValues.format);
       if (initialValues.scale !== undefined) setRenderScale(String(initialValues.scale));
-      if (initialValues.folderPath !== undefined) setFolderPath(initialValues.folderPath);
     }
   }, [initialValues]);
 
   const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setFigmaUrl(val);
+    setLocalError(null);
     const parsed = parseFigmaUrl(val);
     if (parsed) {
       if (parsed.fileKey) setFileKey(parsed.fileKey);
       if (parsed.nodeId) setNodeId(parsed.nodeId);
       if (parsed.fileName) {
         setFileName(parsed.fileName);
-        setFolderPath((prev) => (prev && prev !== fileName ? prev : (parsed.fileName || '')));
       }
       onClearBanners();
     }
   };
 
   const handleFetchClick = () => {
+    if (!compCustomName.trim()) {
+      setLocalError('Component Label is required.');
+      return;
+    }
+    if (!fileKey.trim() || !nodeId.trim()) {
+      setLocalError('Please paste a valid Figma link (auto-fills File & Node).');
+      return;
+    }
+    setLocalError(null);
     onFetchNow({
       fileKey: fileKey.trim(),
       fileName: fileName.trim(),
@@ -101,11 +101,20 @@ export const AddComponentCard: React.FC<AddComponentCardProps> = ({
       format: renderFormat,
       scale: Number(renderScale) || 2,
       figmaUrl: figmaUrl.trim(),
-      folderPath: folderPath.trim()
+      folderPath: fileName.trim() || 'Figma Document'
     });
   };
 
   const handleAddClick = () => {
+    if (!compCustomName.trim()) {
+      setLocalError('Component Label is required.');
+      return;
+    }
+    if (!fileKey.trim() || !nodeId.trim()) {
+      setLocalError('Please paste a valid Figma link (auto-fills File & Node).');
+      return;
+    }
+    setLocalError(null);
     onAddToWatchlist({
       fileKey: fileKey.trim(),
       fileName: fileName.trim(),
@@ -114,7 +123,7 @@ export const AddComponentCard: React.FC<AddComponentCardProps> = ({
       format: renderFormat,
       scale: Number(renderScale) || 2,
       figmaUrl: figmaUrl.trim(),
-      folderPath: folderPath.trim()
+      folderPath: fileName.trim() || 'Figma Document'
     });
   };
 
@@ -150,77 +159,49 @@ export const AddComponentCard: React.FC<AddComponentCardProps> = ({
           placeholder="Auto-detected from Figma link"
           className="input-immutable"
         />
-      </div>
-
-      <div className="form-group">
-        <label htmlFor="compFolderPath">Folder in Figma File</label>
-        <div className="folder-picker-control">
-          <button
-            type="button"
-            id="compFolderPath"
-            className="folder-display-box"
-            onClick={() => setIsFolderPickerOpen(true)}
-            title="Click to choose or create folder"
-          >
-            <span className="folder-display-icon">📁</span>
-            <span className="folder-display-text">
-              {folderPath
-                ? folderPath
-                : fileName
-                ? `${fileName} (File Root)`
-                : 'Paste Figma link to choose folder'}
-            </span>
-            <span className="folder-picker-arrow">▾</span>
-          </button>
-          {folderPath && fileName && folderPath.toLowerCase() !== fileName.toLowerCase() && (
-            <button
-              type="button"
-              className="btn-folder-reset"
-              onClick={() => setFolderPath(fileName)}
-              title={`Reset to root folder "${fileName}"`}
-            >
-              ↩ Reset to Root ({fileName})
-            </button>
+        <div
+          className="field-meta-info"
+          style={{
+            marginTop: '0.4rem',
+            fontSize: '0.78rem',
+            color: 'var(--text-muted)',
+            display: 'flex',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '0.35rem'
+          }}
+        >
+          {fileKey || nodeId ? (
+            <>
+              <span>
+                File Key: <code style={{ color: 'var(--text-main)', fontSize: '0.76rem' }}>{fileKey || '—'}</code>
+              </span>
+              <span style={{ opacity: 0.5 }}>•</span>
+              <span>
+                Node ID: <code style={{ color: 'var(--text-main)', fontSize: '0.76rem' }}>{nodeId || '—'}</code>
+              </span>
+            </>
+          ) : (
+            <span>Auto-detected from Figma link: <code>File Key</code> &bull; <code>Node ID</code></span>
           )}
         </div>
       </div>
 
       <div className="form-group">
-        <label htmlFor="compCustomName">Component Label (Optional)</label>
+        <label htmlFor="compCustomName">
+          Component Label <span className="required">*</span>
+        </label>
         <input
           type="text"
           id="compCustomName"
           value={compCustomName}
-          onChange={(e) => setCompCustomName(e.target.value)}
-          placeholder="e.g. Primary CTA Button (auto-detected if blank)"
+          onChange={(e) => {
+            setCompCustomName(e.target.value);
+            setLocalError(null);
+          }}
+          placeholder="e.g. Primary CTA Button"
+          required
         />
-      </div>
-
-      <div className="form-row">
-        <div className="form-group col">
-          <label htmlFor="fileKey">
-            File Key <span className="required">*</span>
-          </label>
-          <input
-            type="text"
-            id="fileKey"
-            value={fileKey}
-            onChange={(e) => setFileKey(e.target.value)}
-            placeholder="e.g. AbC123XyZ"
-          />
-        </div>
-        <div className="form-group col">
-          <label htmlFor="nodeId">
-            Node ID <span className="required">*</span>
-          </label>
-          <input
-            type="text"
-            id="nodeId"
-            value={nodeId}
-            onChange={(e) => setNodeId(e.target.value)}
-            placeholder="e.g. 1:2 or 1-2"
-          />
-        </div>
       </div>
 
       <div className="form-row">
@@ -276,21 +257,12 @@ export const AddComponentCard: React.FC<AddComponentCardProps> = ({
         </button>
       </div>
 
-      {errorMessage && <div id="errorBanner" className="alert alert-error">{errorMessage}</div>}
+      {(localError || errorMessage) && (
+        <div id="errorBanner" className="alert alert-error">
+          {localError || errorMessage}
+        </div>
+      )}
       {infoMessage && <div id="infoBanner" className="alert alert-info">{infoMessage}</div>}
-
-      <FolderPickerModal
-        isOpen={isFolderPickerOpen}
-        onClose={() => setIsFolderPickerOpen(false)}
-        fileName={fileName}
-        currentFolderPath={folderPath}
-        existingFolders={folders}
-        onSelectFolder={(newPath) => {
-          setFolderPath(newPath);
-        }}
-        onCreateFolder={onCreateFolder}
-        onDeleteFolder={onDeleteFolder}
-      />
     </div>
   );
 };

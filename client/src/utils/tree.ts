@@ -12,99 +12,41 @@ export function normalizeFolderPath(pathStr?: string | null): string {
 
 export function buildComponentTree(
   components: Component[],
-  explicitFolderPaths: string[] = []
+  _explicitFolderPaths: string[] = []
 ): TreeData {
-  const allFolderPaths = new Set<string>();
+  const fileGroups = new Map<string, Component[]>();
 
-  const addPathAndAncestors = (p?: string | null) => {
-    const norm = normalizeFolderPath(p);
-    if (!norm) return;
-    const parts = norm.split('/');
-    let curr = '';
-    for (const part of parts) {
-      curr = curr ? `${curr}/${part}` : part;
-      allFolderPaths.add(curr);
-    }
-  };
-
-  explicitFolderPaths.forEach(addPathAndAncestors);
-  components.forEach((c) => addPathAndAncestors(c.folder_path));
-
-  interface IntermediateFolder {
-    path: string;
-    name: string;
-    depth: number;
-    subfolderPaths: Set<string>;
-    components: Component[];
-  }
-
-  const folderMap = new Map<string, IntermediateFolder>();
-
-  for (const path of allFolderPaths) {
-    const parts = path.split('/');
-    const name = parts[parts.length - 1];
-    const depth = parts.length - 1;
-    folderMap.set(path, {
-      path,
-      name,
-      depth,
-      subfolderPaths: new Set(),
-      components: []
-    });
-  }
-
-  for (const path of allFolderPaths) {
-    const lastSlash = path.lastIndexOf('/');
-    if (lastSlash !== -1) {
-      const parentPath = path.substring(0, lastSlash);
-      const parent = folderMap.get(parentPath);
-      if (parent) {
-        parent.subfolderPaths.add(path);
-      }
-    }
-  }
-
-  const rootComponents: Component[] = [];
   for (const comp of components) {
-    const norm = normalizeFolderPath(comp.folder_path);
-    if (norm && folderMap.has(norm)) {
-      folderMap.get(norm)!.components.push(comp);
-    } else {
-      rootComponents.push(comp);
+    const rootName =
+      (comp.file_name && comp.file_name.trim()) ||
+      (comp.folder_path && comp.folder_path.trim().split('/')[0]) ||
+      'Figma Document';
+    if (!fileGroups.has(rootName)) {
+      fileGroups.set(rootName, []);
     }
+    fileGroups.get(rootName)!.push(comp);
   }
 
-  function toTreeNode(path: string): FolderTreeNode {
-    const item = folderMap.get(path)!;
-    const subfolderNodes = Array.from(item.subfolderPaths)
-      .sort((a, b) => a.localeCompare(b))
-      .map(toTreeNode);
+  const sortedFolderNames = Array.from(fileGroups.keys()).sort((a, b) =>
+    a.localeCompare(b, undefined, { sensitivity: 'base' })
+  );
 
-    const totalSubCount = subfolderNodes.reduce(
-      (sum, sf) => sum + sf.totalComponentCount,
-      0
-    );
-    const totalComponentCount = item.components.length + totalSubCount;
-
+  const folders: FolderTreeNode[] = sortedFolderNames.map((name) => {
+    const folderComponents = fileGroups.get(name)!;
     return {
       type: 'folder',
-      path: item.path,
-      name: item.name,
-      depth: item.depth,
-      subfolders: subfolderNodes,
-      components: item.components,
-      totalComponentCount
+      path: name,
+      name,
+      depth: 0,
+      subfolders: [],
+      components: folderComponents,
+      totalComponentCount: folderComponents.length
     };
-  }
-
-  const topLevelFolders = Array.from(allFolderPaths)
-    .filter((p) => !p.includes('/'))
-    .sort((a, b) => a.localeCompare(b))
-    .map(toTreeNode);
+  });
 
   return {
-    folders: topLevelFolders,
-    rootComponents
+    folders,
+    rootComponents: []
   };
 }
 

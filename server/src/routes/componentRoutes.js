@@ -126,6 +126,12 @@ router.delete('/folders', (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const { name, fileKey, fileName, nodeId, format = 'png', scale = 2, figmaUrl = '', fetchNow = false, token, folderPath = '' } = req.body;
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Component Label is required.'
+      });
+    }
     if (!fileKey || !fileKey.trim() || !nodeId || !String(nodeId).trim()) {
       return res.status(400).json({
         success: false,

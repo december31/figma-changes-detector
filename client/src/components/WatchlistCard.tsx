@@ -2,7 +2,6 @@
 import React, { useState, useMemo } from 'react';
 import { Component, BatchResultItem, BatchSummary, TransientStatus, FolderTreeNode } from '../types';
 import { ComponentItem } from './ComponentItem';
-import { FolderPickerModal } from './FolderPickerModal';
 import { FigmaIcon } from './FigmaIcon';
 import { getStatusPillMeta, buildComponentTree, filterTree, getFolderComponentIds } from '../utils';
 
@@ -10,94 +9,45 @@ interface WatchlistCardProps {
   components: Component[];
   activeComponentId: number | null;
   transientStatuses: Map<number, TransientStatus>;
-  folders?: string[];
   isBatchChecking: boolean;
   batchSummary: BatchSummary | null;
   batchResults: BatchResultItem[] | null;
   onClearBatchResults: () => void;
   onCheckAll: () => void;
   onCheckFolder?: (componentIds: number[]) => void;
-  onCreateFolder?: (path: string) => Promise<void>;
-  onRenameFolder?: (oldPath: string, newPath: string) => Promise<void>;
-  onDeleteFolder?: (path: string, deleteComponents: boolean) => Promise<void>;
-  onSelectFolderForAdd?: (folderPath: string) => void;
   onSelectComponent: (comp: Component) => void;
   onInspectComponent: (comp: Component) => void;
   onFetchComponent: (comp: Component) => void;
   onEditComponent: (comp: Component) => void;
   onDeleteComponent: (comp: Component) => void;
   onInspectBatchItem: (item: BatchResultItem) => void;
-  onUpdateComponentFolder?: (id: number, folderPath: string) => Promise<void>;
 }
 
 export const WatchlistCard: React.FC<WatchlistCardProps> = ({
   components,
   activeComponentId,
   transientStatuses,
-  folders = [],
   isBatchChecking,
   batchSummary,
   batchResults,
   onClearBatchResults,
   onCheckAll,
   onCheckFolder,
-  onCreateFolder,
-  onRenameFolder,
-  onDeleteFolder,
-  onSelectFolderForAdd,
   onSelectComponent,
   onInspectComponent,
   onFetchComponent,
   onEditComponent,
   onDeleteComponent,
-  onInspectBatchItem,
-  onUpdateComponentFolder
+  onInspectBatchItem
 }) => {
   // Tree state (default collapsed)
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
-  const [folderPickerComp, setFolderPickerComp] = useState<Component | null>(null);
 
-  // Folder modal state
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [createFolderPath, setCreateFolderPath] = useState('');
-  const [renamingFolder, setRenamingFolder] = useState<string | null>(null);
-  const [newFolderName, setNewFolderName] = useState('');
-  const [deletingFolder, setDeletingFolder] = useState<string | null>(null);
-  const [deleteWithComponents, setDeleteWithComponents] = useState(false);
-  const [modalError, setModalError] = useState<string | null>(null);
-  const [isSubmittingModal, setIsSubmittingModal] = useState(false);
-
-  // Build raw tree
+  // Build raw tree with root folders based on file name
   const rawTree = useMemo(() => {
-    return buildComponentTree(components, folders);
-  }, [components, folders]);
-
-  // Set of canonical root folders (Figma file names)
-  const rootFolderNames = useMemo(() => {
-    const names = new Set<string>();
-    components.forEach((c) => {
-      if (c.file_name && c.file_name.trim()) {
-        names.add(c.file_name.trim().toLowerCase());
-      }
-      if (c.folder_path && c.folder_path.trim()) {
-        const rootSegment = c.folder_path.trim().split('/')[0].toLowerCase();
-        if (rootSegment) names.add(rootSegment);
-      }
-    });
-    return names;
+    return buildComponentTree(components);
   }, [components]);
-
-  const isPathRootFolder = (path: string) => {
-    const clean = path.trim();
-    if (!clean) return false;
-    if (!clean.includes('/')) return true;
-    const firstSegment = clean.split('/')[0].toLowerCase();
-    if (clean.toLowerCase() === firstSegment || rootFolderNames.has(clean.toLowerCase())) {
-      return true;
-    }
-    return false;
-  };
 
   // Apply search filtering
   const { tree: displayTree } = useMemo(() => {
@@ -115,11 +65,9 @@ export const WatchlistCard: React.FC<WatchlistCardProps> = ({
 
   const expandAll = () => {
     const all = new Set<string>();
-    const collect = (node: FolderTreeNode) => {
+    rawTree.folders.forEach((node) => {
       all.add(node.path);
-      node.subfolders.forEach(collect);
-    };
-    rawTree.folders.forEach(collect);
+    });
     setExpandedFolders(all);
   };
 
@@ -127,105 +75,18 @@ export const WatchlistCard: React.FC<WatchlistCardProps> = ({
     setExpandedFolders(new Set());
   };
 
-  // Folder modal triggers
-  const handleOpenCreate = (parentPath = '') => {
-    setCreateFolderPath(parentPath ? `${parentPath}/` : '');
-    setModalError(null);
-    setIsCreateOpen(true);
-  };
-
-  const handleOpenRename = (path: string) => {
-    setRenamingFolder(path);
-    setNewFolderName(path);
-    setModalError(null);
-  };
-
-  const handleOpenDelete = (path: string) => {
-    setDeletingFolder(path);
-    setDeleteWithComponents(false);
-    setModalError(null);
-  };
-
-  // Modal submissions
-  const handleCreateSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!createFolderPath.trim()) {
-      setModalError('Please enter a folder path.');
-      return;
-    }
-    if (!onCreateFolder) return;
-    setIsSubmittingModal(true);
-    setModalError(null);
-    try {
-      await onCreateFolder(createFolderPath.trim());
-      setIsCreateOpen(false);
-      setCreateFolderPath('');
-    } catch (err: unknown) {
-      setModalError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setIsSubmittingModal(false);
-    }
-  };
-
-  const handleRenameSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!renamingFolder || !newFolderName.trim()) {
-      setModalError('Please enter a new folder path.');
-      return;
-    }
-    if (!onRenameFolder) return;
-    setIsSubmittingModal(true);
-    setModalError(null);
-    try {
-      await onRenameFolder(renamingFolder, newFolderName.trim());
-      setRenamingFolder(null);
-    } catch (err: unknown) {
-      setModalError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setIsSubmittingModal(false);
-    }
-  };
-
-  const handleDeleteSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!deletingFolder || !onDeleteFolder) return;
-    
-    // Check if folder contains components
-    const target = deletingFolder.trim().toLowerCase();
-    const hasComponents = components.some((c) => {
-      const p = (c.folder_path || '').trim().toLowerCase();
-      return p === target || p.startsWith(target + '/');
-    });
-
-    if (hasComponents && isPathRootFolder(deletingFolder)) {
-      setModalError('The root folder for this Figma file cannot be deleted while it contains components.');
-      return;
-    }
-    setIsSubmittingModal(true);
-    setModalError(null);
-    try {
-      await onDeleteFolder(deletingFolder, deleteWithComponents);
-      setDeletingFolder(null);
-    } catch (err: unknown) {
-      setModalError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setIsSubmittingModal(false);
-    }
-  };
-
-  // Recursive tree node renderer
+  // Root folder node renderer
   const renderFolderNode = (node: FolderTreeNode) => {
     const isSearching = searchQuery.trim().length > 0;
-    // When searching, matching folders stay expanded automatically; otherwise default to collapsed
+    // When searching, matching folders stay expanded automatically; otherwise check expandedFolders
     const isExpanded = isSearching ? true : expandedFolders.has(node.path);
     const isCollapsed = !isExpanded;
-    const isRootFolder = node.depth === 0 || isPathRootFolder(node.path);
 
     return (
       <div key={node.path} className="folder-tree-node">
         <div
           className="folder-row"
-          style={{ paddingLeft: `${node.depth * 14 + 10}px` }}
+          style={{ paddingLeft: '10px' }}
           onClick={() => toggleFolder(node.path)}
         >
           <div className="folder-header-left">
@@ -242,9 +103,9 @@ export const WatchlistCard: React.FC<WatchlistCardProps> = ({
             </button>
             <span
               className="folder-icon"
-              style={isRootFolder ? { display: 'inline-flex', alignItems: 'center' } : undefined}
+              style={{ display: 'inline-flex', alignItems: 'center' }}
             >
-              {isRootFolder ? <FigmaIcon size={13} /> : (isCollapsed ? '📁' : '📂')}
+              <FigmaIcon size={13} />
             </span>
             <span className="folder-name" title={node.path}>
               {node.name}
@@ -262,7 +123,7 @@ export const WatchlistCard: React.FC<WatchlistCardProps> = ({
               <button
                 type="button"
                 className="btn-mini folder-action-btn"
-                title={`Check all ${node.totalComponentCount} component(s) in this folder`}
+                title={`Check all ${node.totalComponentCount} component(s) in this file`}
                 disabled={isBatchChecking}
                 onClick={() => {
                   const compIds = getFolderComponentIds(node);
@@ -272,57 +133,16 @@ export const WatchlistCard: React.FC<WatchlistCardProps> = ({
                 ⚡ Check
               </button>
             )}
-
-            {onSelectFolderForAdd && (
-              <button
-                type="button"
-                className="btn-mini folder-action-btn"
-                title="Add new component to this folder"
-                onClick={() => onSelectFolderForAdd(node.path)}
-              >
-                ➕ Add
-              </button>
-            )}
-
-            <button
-              type="button"
-              className="btn-mini folder-action-btn"
-              title="Create subfolder inside this folder"
-              onClick={() => handleOpenCreate(node.path)}
-            >
-              📁+ Sub
-            </button>
-
-            <button
-              type="button"
-              className="btn-mini folder-action-btn"
-              title="Rename folder"
-              onClick={() => handleOpenRename(node.path)}
-            >
-              ✎
-            </button>
-
-            {node.totalComponentCount === 0 && (
-              <button
-                type="button"
-                className="btn-mini folder-action-btn delete-btn"
-                title="Delete folder"
-                onClick={() => handleOpenDelete(node.path)}
-              >
-                &times;
-              </button>
-            )}
           </div>
         </div>
 
         {!isCollapsed && (
           <div className="folder-children">
-            {node.subfolders.map(renderFolderNode)}
             {node.components.map((comp) => (
               <ComponentItem
                 key={comp.id}
                 component={comp}
-                depth={node.depth + 1}
+                depth={1}
                 isActive={comp.id === activeComponentId}
                 transientStatus={transientStatuses.get(comp.id)}
                 onSelect={onSelectComponent}
@@ -330,15 +150,14 @@ export const WatchlistCard: React.FC<WatchlistCardProps> = ({
                 onFetch={onFetchComponent}
                 onEdit={onEditComponent}
                 onDelete={onDeleteComponent}
-                onChangeFolder={setFolderPickerComp}
               />
             ))}
-            {node.components.length === 0 && node.subfolders.length === 0 && (
+            {node.components.length === 0 && (
               <div
                 className="folder-empty-note"
-                style={{ paddingLeft: `${(node.depth + 1) * 14 + 14}px` }}
+                style={{ paddingLeft: '24px' }}
               >
-                Empty folder &bull; Click <strong>➕ Add</strong> or <strong>📁+ Sub</strong>
+                No components in this file
               </div>
             )}
           </div>
@@ -361,7 +180,7 @@ export const WatchlistCard: React.FC<WatchlistCardProps> = ({
         </span>
       </div>
       <p className="section-desc">
-        Organized in tree folders. Click <strong>Check All</strong> anytime to fetch new images into{' '}
+        Organized by Figma file. Click <strong>Check All</strong> anytime to fetch new images into{' '}
         <code>/assets</code> and compare against previous fetches.
       </p>
 
@@ -513,14 +332,14 @@ export const WatchlistCard: React.FC<WatchlistCardProps> = ({
         </div>
       )}
 
-      {/* Tree Management Toolbar & Search */}
+      {/* Watchlist Search & Toolbar */}
       <div className="watchlist-management-bar">
         <div className="watchlist-search-box">
           <span className="search-icon">🔍</span>
           <input
             type="text"
             className="watchlist-search-input"
-            placeholder="Search components or folders..."
+            placeholder="Search components or files..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -541,7 +360,7 @@ export const WatchlistCard: React.FC<WatchlistCardProps> = ({
             <button
               type="button"
               className="btn-mini btn-toolbar"
-              title="Expand all folders"
+              title="Expand all file folders"
               onClick={expandAll}
             >
               ⊞ Expand
@@ -549,7 +368,7 @@ export const WatchlistCard: React.FC<WatchlistCardProps> = ({
             <button
               type="button"
               className="btn-mini btn-toolbar"
-              title="Collapse all folders"
+              title="Collapse all file folders"
               onClick={collapseAll}
             >
               ⊟ Collapse
@@ -570,15 +389,15 @@ export const WatchlistCard: React.FC<WatchlistCardProps> = ({
           </div>
         ) : (
           <>
-            {/* Folder Hierarchy */}
+            {/* File Root Folders */}
             {displayTree.folders.map(renderFolderNode)}
 
-            {/* Root / Uncategorized Components */}
+            {/* Any standalone components outside folders */}
             {displayTree.rootComponents.length > 0 && (
               <div className="tree-root-section">
                 {hasAnyFolders && (
                   <div className="tree-root-divider">
-                    <span>Root Components ({displayTree.rootComponents.length})</span>
+                    <span>Other Components ({displayTree.rootComponents.length})</span>
                   </div>
                 )}
                 {displayTree.rootComponents.map((comp) => (
@@ -593,7 +412,6 @@ export const WatchlistCard: React.FC<WatchlistCardProps> = ({
                     onFetch={onFetchComponent}
                     onEdit={onEditComponent}
                     onDelete={onDeleteComponent}
-                    onChangeFolder={setFolderPickerComp}
                   />
                 ))}
               </div>
@@ -601,207 +419,6 @@ export const WatchlistCard: React.FC<WatchlistCardProps> = ({
           </>
         )}
       </div>
-
-      {/* Modal: Create Folder */}
-      {isCreateOpen && (
-        <div className="modal">
-          <div className="modal-backdrop" onClick={() => setIsCreateOpen(false)} />
-          <div className="modal-dialog">
-            <div className="modal-dialog-header">
-              <div className="modal-dialog-title">
-                <h2>Create Folder</h2>
-                <p className="subtitle">
-                  {createFolderPath.includes('/')
-                    ? `Create subfolder under ${createFolderPath.replace(/\/$/, '')}`
-                    : 'Create a new folder (e.g. Design System/Buttons)'}
-                </p>
-              </div>
-              <button
-                type="button"
-                className="modal-dialog-close"
-                onClick={() => setIsCreateOpen(false)}
-              >
-                &times;
-              </button>
-            </div>
-            <form onSubmit={handleCreateSubmit}>
-              {modalError && <div className="banner error">{modalError}</div>}
-              <div className="form-group">
-                <label htmlFor="createFolderInput">Folder Path</label>
-                <input
-                  type="text"
-                  id="createFolderInput"
-                  value={createFolderPath}
-                  onChange={(e) => setCreateFolderPath(e.target.value)}
-                  placeholder="e.g. Checkout/Payment or Buttons"
-                  autoFocus
-                  required
-                />
-              </div>
-              <div className="button-group-row">
-                <button
-                  type="submit"
-                  className="btn-primary"
-                  disabled={isSubmittingModal}
-                >
-                  {isSubmittingModal ? 'Creating...' : 'Create Folder'}
-                </button>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => setIsCreateOpen(false)}
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal: Rename Folder */}
-      {renamingFolder && (
-        <div className="modal">
-          <div className="modal-backdrop" onClick={() => setRenamingFolder(null)} />
-          <div className="modal-dialog">
-            <div className="modal-dialog-header">
-              <div className="modal-dialog-title">
-                <h2>Rename Folder</h2>
-                <p className="subtitle">
-                  Rename &quot;{renamingFolder}&quot; across all components &amp; subfolders
-                </p>
-              </div>
-              <button
-                type="button"
-                className="modal-dialog-close"
-                onClick={() => setRenamingFolder(null)}
-              >
-                &times;
-              </button>
-            </div>
-            <form onSubmit={handleRenameSubmit}>
-              {modalError && <div className="banner error">{modalError}</div>}
-              <div className="form-group">
-                <label htmlFor="renameFolderInput">New Folder Path</label>
-                <input
-                  type="text"
-                  id="renameFolderInput"
-                  value={newFolderName}
-                  onChange={(e) => setNewFolderName(e.target.value)}
-                  autoFocus
-                  required
-                />
-              </div>
-              <div className="button-group-row">
-                <button
-                  type="submit"
-                  className="btn-primary"
-                  disabled={isSubmittingModal}
-                >
-                  {isSubmittingModal ? 'Renaming...' : 'Rename Folder'}
-                </button>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => setRenamingFolder(null)}
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal: Delete Folder */}
-      {deletingFolder && (() => {
-        const target = deletingFolder.trim().toLowerCase();
-        const folderHasComps = components.some((c) => {
-          const p = (c.folder_path || '').trim().toLowerCase();
-          return p === target || p.startsWith(target + '/');
-        });
-
-        return (
-          <div className="modal">
-            <div className="modal-backdrop" onClick={() => setDeletingFolder(null)} />
-            <div className="modal-dialog">
-              <div className="modal-dialog-header">
-                <div className="modal-dialog-title">
-                  <h2>Delete Folder</h2>
-                  <p className="subtitle">Delete folder &quot;{deletingFolder}&quot;</p>
-                </div>
-                <button
-                  type="button"
-                  className="modal-dialog-close"
-                  onClick={() => setDeletingFolder(null)}
-                >
-                  &times;
-                </button>
-              </div>
-              <form onSubmit={handleDeleteSubmit}>
-                {modalError && <div className="banner error">{modalError}</div>}
-                {folderHasComps ? (
-                  <div className="form-group" style={{ marginBottom: '1.25rem' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                      <input
-                        type="checkbox"
-                        checked={deleteWithComponents}
-                        onChange={(e) => setDeleteWithComponents(e.target.checked)}
-                      />
-                      <span>
-                        Also permanently delete all component(s) inside this folder
-                      </span>
-                    </label>
-                    {!deleteWithComponents && (
-                      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.35rem', marginLeft: '1.5rem' }}>
-                        Components will be moved to the parent folder / root.
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: '1.25rem' }}>
-                    This folder has no components and will be removed permanently.
-                  </p>
-                )}
-                <div className="button-group-row">
-                  <button
-                    type="submit"
-                    className="btn-primary btn-delete-danger"
-                    style={{ background: 'var(--accent-red)', borderColor: 'var(--accent-red)' }}
-                    disabled={isSubmittingModal}
-                  >
-                    {isSubmittingModal ? 'Deleting...' : 'Delete Folder'}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={() => setDeletingFolder(null)}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* Quick Folder Picker for Component */}
-      <FolderPickerModal
-        isOpen={Boolean(folderPickerComp)}
-        onClose={() => setFolderPickerComp(null)}
-        fileName={folderPickerComp?.file_name || ''}
-        currentFolderPath={folderPickerComp?.folder_path || ''}
-        existingFolders={folders}
-        onSelectFolder={async (newPath) => {
-          if (folderPickerComp && onUpdateComponentFolder) {
-            await onUpdateComponentFolder(folderPickerComp.id, newPath);
-          }
-          setFolderPickerComp((prev) => (prev ? { ...prev, folder_path: newPath } : null));
-        }}
-        onCreateFolder={onCreateFolder}
-        onDeleteFolder={onDeleteFolder ? (p) => onDeleteFolder(p, false) : undefined}
-      />
     </div>
   );
 };

@@ -21,6 +21,7 @@ export const PublishCollabModal: React.FC<PublishCollabModalProps> = ({
   const [customCollabUrl, setCustomCollabUrl] = useState('');
   const [customToken, setCustomToken] = useState(() => localStorage.getItem('collab_token') || '');
   const [showSettings, setShowSettings] = useState(false);
+  const [attachWorkspace, setAttachWorkspace] = useState(true);
 
   // Status & Verification state
   const [isVerifying, setIsVerifying] = useState(false);
@@ -136,7 +137,8 @@ export const PublishCollabModal: React.FC<PublishCollabModalProps> = ({
         parentPageId: cleanParentId,
         pageTitle: pageTitle.trim() || undefined,
         collabUrl: customCollabUrl.trim() || undefined,
-        token: customToken.trim() || undefined
+        token: customToken.trim() || undefined,
+        attachWorkspace
       });
       setPublishResult(res);
     } catch (err: unknown) {
@@ -224,6 +226,28 @@ export const PublishCollabModal: React.FC<PublishCollabModalProps> = ({
               <p style={{ margin: '0 0 0.75rem', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
                 Embedded {publishResult.totalAttached} comparison snapshots across {fileDecks.length} Figma Cards in the Deck.
               </p>
+
+              {publishResult.attachedWorkspace && (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.45rem',
+                    background: 'rgba(26, 188, 254, 0.1)',
+                    border: '1px solid rgba(26, 188, 254, 0.3)',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '0.5rem 0.75rem',
+                    fontSize: '0.8rem',
+                    color: '#fff',
+                    marginBottom: '0.75rem'
+                  }}
+                >
+                  <span>📦</span>
+                  <span>
+                    Attached workspace bundle: <code>{publishResult.attachedWorkspace}</code>
+                  </span>
+                </div>
+              )}
 
               <a
                 href={publishResult.pageUrl}
@@ -341,6 +365,43 @@ export const PublishCollabModal: React.FC<PublishCollabModalProps> = ({
               />
             </div>
 
+            {/* Field: Attach Workspace Archive */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '0.65rem',
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border-color)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '0.75rem'
+              }}
+            >
+              <input
+                type="checkbox"
+                id="attach-workspace-checkbox"
+                checked={attachWorkspace}
+                onChange={(e) => setAttachWorkspace(e.target.checked)}
+                disabled={isPublishing}
+                style={{
+                  marginTop: '0.2rem',
+                  cursor: 'pointer',
+                  accentColor: 'var(--accent-blue)',
+                  width: '16px',
+                  height: '16px'
+                }}
+              />
+              <label htmlFor="attach-workspace-checkbox" style={{ cursor: 'pointer', flex: 1, userSelect: 'none' }}>
+                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#fff', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <span>📦</span>
+                  <span>Export &amp; attach workspace bundle (.zip)</span>
+                </div>
+                <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: '0.2rem', lineHeight: 1.4 }}>
+                  Packages current database and snapshot assets into a <code>.zip</code> attachment on the Collab page. Team members can download and import it directly into Figma Changes Detector.
+                </div>
+              </label>
+            </div>
+
             {/* Figma Decks Preview List */}
             {fileDecks.length > 0 && (
               <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
@@ -454,7 +515,7 @@ export const PublishCollabModal: React.FC<PublishCollabModalProps> = ({
                 {isPublishing ? (
                   <>
                     <span className="spinner-small" style={{ width: '14px', height: '14px', borderWidth: '2px' }} />
-                    <span>Publishing Decks &amp; Snapshots...</span>
+                    <span>Publishing Decks, Snapshots &amp; Workspace...</span>
                   </>
                 ) : (
                   <>
