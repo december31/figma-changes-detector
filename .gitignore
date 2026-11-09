@@ -8,6 +8,10 @@ server/.env
 *.db-journal
 *.db-wal
 *.db-shm
+datasources.json
+datasources/
+server/datasources.json
+server/datasources/
 assets/
 server/assets/snapshots/*
 server/assets/diffs/*

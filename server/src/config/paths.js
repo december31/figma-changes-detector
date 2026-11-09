@@ -1,33 +1,75 @@
 const path = require('path');
-const fs = require('fs');
+const dataSourceManager = require('../services/dataSourceManager');
 
-// If APP_DATA_DIR is provided (e.g. by Electron app.getPath('userData')), use it;
-// otherwise default to server root directory (server/)
-const dataDir = process.env.APP_DATA_DIR || path.resolve(__dirname, '..', '..');
+function getActiveDataDir() {
+  return dataSourceManager.getActiveDataSource().dir;
+}
 
-const dbPath = path.join(dataDir, 'data.db');
-const assetsDir = path.join(dataDir, 'assets');
-const snapshotsDir = path.join(assetsDir, 'snapshots');
-const diffsDir = path.join(assetsDir, 'diffs');
-const thumbnailsDir = path.join(assetsDir, 'thumbnails');
+function getActiveDbPath() {
+  return dataSourceManager.getActiveDataSource().dbPath;
+}
 
-// Ensure storage directories exist
-fs.mkdirSync(snapshotsDir, { recursive: true });
-fs.mkdirSync(diffsDir, { recursive: true });
-fs.mkdirSync(thumbnailsDir, { recursive: true });
+function getActiveAssetsDir() {
+  return dataSourceManager.getActiveDataSource().assetsDir;
+}
+
+function getActiveSnapshotsDir() {
+  return dataSourceManager.getActiveDataSource().snapshotsDir;
+}
+
+function getActiveDiffsDir() {
+  return dataSourceManager.getActiveDataSource().diffsDir;
+}
+
+function getActiveThumbnailsDir() {
+  return dataSourceManager.getActiveDataSource().thumbnailsDir;
+}
 
 function resolveAssetPath(relPath) {
   if (!relPath) return null;
   const clean = String(relPath).replace(/^\//, '');
-  return path.join(dataDir, clean);
+  return path.join(getActiveDataDir(), clean);
 }
 
-module.exports = {
-  dataDir,
-  dbPath,
-  assetsDir,
-  snapshotsDir,
-  diffsDir,
-  thumbnailsDir,
+const pathsExport = {
+  getActiveDataDir,
+  getActiveDbPath,
+  getActiveAssetsDir,
+  getActiveSnapshotsDir,
+  getActiveDiffsDir,
+  getActiveThumbnailsDir,
   resolveAssetPath
 };
+
+// Backward-compatible dynamic property getters
+Object.defineProperty(pathsExport, 'dataDir', {
+  get: getActiveDataDir,
+  enumerable: true
+});
+
+Object.defineProperty(pathsExport, 'dbPath', {
+  get: getActiveDbPath,
+  enumerable: true
+});
+
+Object.defineProperty(pathsExport, 'assetsDir', {
+  get: getActiveAssetsDir,
+  enumerable: true
+});
+
+Object.defineProperty(pathsExport, 'snapshotsDir', {
+  get: getActiveSnapshotsDir,
+  enumerable: true
+});
+
+Object.defineProperty(pathsExport, 'diffsDir', {
+  get: getActiveDiffsDir,
+  enumerable: true
+});
+
+Object.defineProperty(pathsExport, 'thumbnailsDir', {
+  get: getActiveThumbnailsDir,
+  enumerable: true
+});
+
+module.exports = pathsExport;

@@ -5,6 +5,14 @@ const { execSync } = require('child_process');
 const targetDir = path.join(__dirname, '..', 'node_modules', '@img', 'sharp-win32-x64');
 const targetFile = path.join(targetDir, 'lib', 'libvips-42.dll');
 
+const serverImgDir = path.join(__dirname, '..', 'server', 'node_modules', '@img');
+if (fs.existsSync(serverImgDir)) {
+  const serverTarget = path.join(serverImgDir, 'sharp-win32-x64');
+  try {
+    fs.cpSync(targetDir, serverTarget, { recursive: true });
+  } catch (e) {}
+}
+
 if (fs.existsSync(targetFile)) {
   console.log('✓ Windows sharp prebuilt binaries already present.');
   process.exit(0);

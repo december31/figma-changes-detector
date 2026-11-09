@@ -74,6 +74,5 @@ async function generateAllThumbnails(targetSize = 96) {
 module.exports = {
   getOrCreateThumbnail,
   generateAllThumbnails,
-  thumbnailsDir,
-  rootDir
+  thumbnailsDir
 };

@@ -1,13 +1,20 @@
 // client/src/components/Header.tsx
 import React from 'react';
-import { TokenStatusInfo } from '../types';
+import { TokenStatusInfo, DataSource } from '../types';
 
 interface HeaderProps {
   tokenStatus: TokenStatusInfo;
+  activeDataSource?: DataSource | null;
+  onOpenDataSources?: () => void;
   onOpenHistory?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ tokenStatus, onOpenHistory }) => {
+export const Header: React.FC<HeaderProps> = ({
+  tokenStatus,
+  activeDataSource,
+  onOpenDataSources,
+  onOpenHistory
+}) => {
   return (
     <header class-name="app-header" className="app-header">
       <div className="header-left">
@@ -41,6 +48,26 @@ export const Header: React.FC<HeaderProps> = ({ tokenStatus, onOpenHistory }) =>
         </div>
       </div>
       <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        {activeDataSource && onOpenDataSources && (
+          <button
+            type="button"
+            className="btn-pill"
+            onClick={onOpenDataSources}
+            title="Switch or manage workspaces"
+            style={{
+              padding: '0.35rem 0.75rem',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              background: 'rgba(26, 188, 254, 0.1)',
+              color: '#007bb0',
+              border: '1px solid rgba(26, 188, 254, 0.3)'
+            }}
+          >
+            📁 <span>{activeDataSource.name}</span> <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>▾</span>
+          </button>
+        )}
         {onOpenHistory && (
           <button
             type="button"

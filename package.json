@@ -46,7 +46,9 @@
       "server/**/*",
       "client/dist/**/*",
       "!server/assets/**/*",
-      "!server/data.db*"
+      "!server/data.db*",
+      "!server/datasources/**/*",
+      "!server/datasources.json"
     ],
     "win": {
       "target": [

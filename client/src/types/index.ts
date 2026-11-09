@@ -237,3 +237,19 @@ export interface PublishCollabResponse {
   error?: string;
 }
 
+export interface DataSource {
+  id: string;
+  name: string;
+  createdAt: string;
+  lastUsedAt: string;
+  isActive: boolean;
+  sizeBytes?: number;
+  componentCount?: number;
+}
+
+export interface DataSourcesResponse {
+  success: boolean;
+  datasources: DataSource[];
+}
+
+

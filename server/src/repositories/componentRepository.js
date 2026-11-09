@@ -3,98 +3,121 @@ const path = require('path');
 const fs = require('fs');
 
 const { dbPath, resolveAssetPath } = require('../config/paths');
-const db = new DatabaseSync(dbPath);
+const dataSourceManager = require('../services/dataSourceManager');
 
-// Enable WAL mode and foreign keys
-db.exec('PRAGMA journal_mode = WAL;');
-db.exec('PRAGMA foreign_keys = ON;');
+let db = null;
 
-// Initialize schema
-db.exec(`
-  CREATE TABLE IF NOT EXISTS tracked_components (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    file_key TEXT NOT NULL,
-    file_name TEXT DEFAULT 'Figma Document',
-    node_id TEXT NOT NULL,
-    node_type TEXT DEFAULT 'COMPONENT',
-    format TEXT DEFAULT 'png',
-    scale REAL DEFAULT 2,
-    figma_url TEXT,
-    created_at TEXT NOT NULL
-  );
+function initDb(targetDbPath) {
+  if (db) {
+    try {
+      db.exec('PRAGMA wal_checkpoint(TRUNCATE);');
+      db.close();
+    } catch (e) {
+      console.warn('Error closing previous database connection:', e.message);
+    }
+  }
 
-  CREATE UNIQUE INDEX IF NOT EXISTS idx_tracked_file_node
-    ON tracked_components(file_key, node_id);
+  db = new DatabaseSync(targetDbPath);
 
-  CREATE TABLE IF NOT EXISTS fetch_history (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    component_id INTEGER NOT NULL,
-    image_path TEXT NOT NULL,
-    file_hash TEXT NOT NULL,
-    width INTEGER DEFAULT 0,
-    height INTEGER DEFAULT 0,
-    has_changes INTEGER DEFAULT 0,
-    change_status TEXT DEFAULT 'baseline',
-    diff_pixels INTEGER DEFAULT 0,
-    diff_percentage REAL DEFAULT 0,
-    diff_image_path TEXT,
-    diff_boxes_json TEXT DEFAULT '[]',
-    previous_fetch_id INTEGER,
-    figma_last_modified TEXT,
-    fetched_at TEXT NOT NULL,
-    FOREIGN KEY (component_id) REFERENCES tracked_components(id) ON DELETE CASCADE
-  );
-`);
+  // Enable WAL mode and foreign keys
+  db.exec('PRAGMA journal_mode = WAL;');
+  db.exec('PRAGMA foreign_keys = ON;');
 
-// Ensure diff_boxes_json column exists for existing databases
-try {
-  db.exec(`ALTER TABLE fetch_history ADD COLUMN diff_boxes_json TEXT DEFAULT '[]';`);
-} catch (e) {
-  // Column already exists
+  // Initialize schema
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS tracked_components (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      file_key TEXT NOT NULL,
+      file_name TEXT DEFAULT 'Figma Document',
+      node_id TEXT NOT NULL,
+      node_type TEXT DEFAULT 'COMPONENT',
+      format TEXT DEFAULT 'png',
+      scale REAL DEFAULT 2,
+      figma_url TEXT,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_tracked_file_node
+      ON tracked_components(file_key, node_id);
+
+    CREATE TABLE IF NOT EXISTS fetch_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      component_id INTEGER NOT NULL,
+      image_path TEXT NOT NULL,
+      file_hash TEXT NOT NULL,
+      width INTEGER DEFAULT 0,
+      height INTEGER DEFAULT 0,
+      has_changes INTEGER DEFAULT 0,
+      change_status TEXT DEFAULT 'baseline',
+      diff_pixels INTEGER DEFAULT 0,
+      diff_percentage REAL DEFAULT 0,
+      diff_image_path TEXT,
+      diff_boxes_json TEXT DEFAULT '[]',
+      previous_fetch_id INTEGER,
+      figma_last_modified TEXT,
+      fetched_at TEXT NOT NULL,
+      FOREIGN KEY (component_id) REFERENCES tracked_components(id) ON DELETE CASCADE
+    );
+  `);
+
+  // Ensure diff_boxes_json column exists for existing databases
+  try {
+    db.exec(`ALTER TABLE fetch_history ADD COLUMN diff_boxes_json TEXT DEFAULT '[]';`);
+  } catch (e) {
+    // Column already exists
+  }
+
+  // Ensure folder_path column exists for tracked_components
+  try {
+    db.exec(`ALTER TABLE tracked_components ADD COLUMN folder_path TEXT DEFAULT '';`);
+  } catch (e) {
+    // Column already exists
+  }
+
+  // Folders table for explicitly created / empty folders
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS folders (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      path TEXT UNIQUE NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_tracked_folder ON tracked_components(folder_path);
+
+    CREATE TABLE IF NOT EXISTS fetch_runs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      trigger_type TEXT NOT NULL DEFAULT 'all',
+      target_name TEXT NOT NULL DEFAULT 'All Components',
+      status TEXT NOT NULL DEFAULT 'completed',
+      total_items INTEGER DEFAULT 0,
+      changed_count INTEGER DEFAULT 0,
+      unchanged_count INTEGER DEFAULT 0,
+      baseline_count INTEGER DEFAULT 0,
+      error_count INTEGER DEFAULT 0,
+      started_at TEXT NOT NULL,
+      completed_at TEXT
+    );
+  `);
+
+  // Ensure run_id exists in fetch_history
+  try {
+    db.exec(`ALTER TABLE fetch_history ADD COLUMN run_id INTEGER REFERENCES fetch_runs(id) ON DELETE SET NULL;`);
+  } catch (e) {
+    // Column already exists
+  }
+
+  try {
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_fetch_history_run_id ON fetch_history(run_id);`);
+  } catch (e) {}
 }
 
-// Ensure folder_path column exists for tracked_components
-try {
-  db.exec(`ALTER TABLE tracked_components ADD COLUMN folder_path TEXT DEFAULT '';`);
-} catch (e) {
-  // Column already exists
-}
+// Subscribe to database switch events from dataSourceManager
+dataSourceManager.setOnDatabaseSwitch((newPath) => {
+  initDb(newPath);
+});
 
-// Folders table for explicitly created / empty folders
-db.exec(`
-  CREATE TABLE IF NOT EXISTS folders (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    path TEXT UNIQUE NOT NULL,
-    created_at TEXT NOT NULL
-  );
-  CREATE INDEX IF NOT EXISTS idx_tracked_folder ON tracked_components(folder_path);
-
-  CREATE TABLE IF NOT EXISTS fetch_runs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    trigger_type TEXT NOT NULL DEFAULT 'all',
-    target_name TEXT NOT NULL DEFAULT 'All Components',
-    status TEXT NOT NULL DEFAULT 'completed',
-    total_items INTEGER DEFAULT 0,
-    changed_count INTEGER DEFAULT 0,
-    unchanged_count INTEGER DEFAULT 0,
-    baseline_count INTEGER DEFAULT 0,
-    error_count INTEGER DEFAULT 0,
-    started_at TEXT NOT NULL,
-    completed_at TEXT
-  );
-`);
-
-// Ensure run_id exists in fetch_history
-try {
-  db.exec(`ALTER TABLE fetch_history ADD COLUMN run_id INTEGER REFERENCES fetch_runs(id) ON DELETE SET NULL;`);
-} catch (e) {
-  // Column already exists
-}
-
-try {
-  db.exec(`CREATE INDEX IF NOT EXISTS idx_fetch_history_run_id ON fetch_history(run_id);`);
-} catch (e) {}
+// Initial database connection
+initDb(dbPath);
 
 function normalizeFolderPath(pathStr) {
   if (!pathStr || typeof pathStr !== 'string') return '';

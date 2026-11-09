@@ -6,10 +6,11 @@ const fs = require('fs');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
-const { assetsDir } = require('./src/config/paths');
+const { assetsDir, getActiveAssetsDir } = require('./src/config/paths');
 const componentRoutes = require('./src/routes/componentRoutes');
 const figmaRoutes = require('./src/routes/figmaRoutes');
 const collabRoutes = require('./src/routes/collabRoutes');
+const dataSourceRoutes = require('./src/routes/dataSourceRoutes');
 const { compareWithPreviousFetch } = require('./src/services/diffService');
 
 // Accommodate enterprise SSL inspection / corporate proxies if not explicitly configured
@@ -23,10 +24,13 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Assets static serving
-app.use('/assets', express.static(assetsDir));
+// Assets dynamic static serving per active DataSource
+app.use('/assets', (req, res, next) => {
+  express.static(getActiveAssetsDir())(req, res, next);
+});
 
 // Mount modular feature routes
+app.use('/api/datasources', dataSourceRoutes);
 app.use('/api/components', componentRoutes);
 app.use('/api/collab', collabRoutes);
 app.use('/api', figmaRoutes);
@@ -53,10 +57,10 @@ if (fs.existsSync(clientDist)) {
   });
 }
 
-function startServer(port = PORT) {
+function startServer(port = PORT, host = '127.0.0.1') {
   return new Promise((resolve, reject) => {
-    const server = app.listen(port, () => {
-      console.log(`Figma Changes Detector running at http://localhost:${port}`);
+    const server = app.listen(port, host, () => {
+      console.log(`Figma Changes Detector running at http://${host}:${port}`);
       resolve(server);
     }).on('error', reject);
   });

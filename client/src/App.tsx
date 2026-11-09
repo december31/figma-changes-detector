@@ -6,7 +6,8 @@ import {
   TransientStatus,
   BatchResultItem,
   BatchSummary,
-  UpdateComponentPayload
+  UpdateComponentPayload,
+  DataSource
 } from './types';
 import * as api from './services/api';
 import { Header } from './components/Header';
@@ -17,6 +18,7 @@ import { InspectPage } from './components/InspectPage';
 import { HistoryReportPage } from './components/HistoryReportPage';
 import { EditComponentModal } from './components/EditComponentModal';
 import { ZoomModal } from './components/ZoomModal';
+import { DataSourceModal } from './components/DataSourceModal';
 
 type AppRoute = {
   page: 'home' | 'inspect' | 'history';
@@ -111,6 +113,29 @@ export const App: React.FC = () => {
 
   const [isZoomOpen, setIsZoomOpen] = useState(false);
   const [zoomImageSrc, setZoomImageSrc] = useState<string | null>(null);
+
+  // --- DataSources State ---
+  const [datasources, setDatasources] = useState<DataSource[]>([]);
+  const [isDataSourceModalOpen, setIsDataSourceModalOpen] = useState(false);
+
+  const loadDataSources = useCallback(async () => {
+    try {
+      const list = await api.getDataSources();
+      setDatasources(list);
+    } catch (err) {
+      console.warn('Could not load datasources:', err);
+    }
+  }, []);
+
+  const activeDataSource = React.useMemo(() => {
+    return datasources.find((d) => d.isActive) || datasources[0] || null;
+  }, [datasources]);
+
+  const handleSwitchDataSource = async (id: string) => {
+    await api.switchDataSource(id);
+    await loadDataSources();
+    await loadComponents();
+  };
 
   // --- Token Status ---
   const tokenStatus: TokenStatusInfo = React.useMemo(() => {
@@ -214,8 +239,9 @@ export const App: React.FC = () => {
         console.warn('Could not check app config:', err);
       });
 
+    loadDataSources();
     loadComponents();
-  }, [loadComponents]);
+  }, [loadComponents, loadDataSources]);
 
   // --- Component Selection ---
   const handleSelectComponent = async (comp: Component) => {
@@ -653,7 +679,12 @@ export const App: React.FC = () => {
   return (
     <div className="app-container">
       {/* Header */}
-      <Header tokenStatus={tokenStatus} onOpenHistory={navigateToHistory} />
+      <Header
+        tokenStatus={tokenStatus}
+        activeDataSource={activeDataSource}
+        onOpenDataSources={() => setIsDataSourceModalOpen(true)}
+        onOpenHistory={navigateToHistory}
+      />
 
       {/* Main Grid */}
       <main className="main-grid">
@@ -738,6 +769,18 @@ export const App: React.FC = () => {
           setIsZoomOpen(false);
           setZoomImageSrc(null);
         }}
+      />
+
+      {/* DataSource Management Modal */}
+      <DataSourceModal
+        isOpen={isDataSourceModalOpen}
+        datasources={datasources}
+        onClose={() => setIsDataSourceModalOpen(false)}
+        onRefresh={async () => {
+          await loadDataSources();
+          await loadComponents();
+        }}
+        onSwitch={handleSwitchDataSource}
       />
     </div>
   );

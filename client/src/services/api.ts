@@ -14,7 +14,8 @@ import {
   CollabConfig,
   VerifyParentResponse,
   PublishCollabPayload,
-  PublishCollabResponse
+  PublishCollabResponse,
+  DataSource
 } from '../types';
 
 const API_BASE = '/api';
@@ -337,4 +338,62 @@ export async function publishCollabReport(
   });
   return handleApiResponse(res, 'Failed to publish report to Collab.');
 }
+
+export async function getDataSources(): Promise<DataSource[]> {
+  const res = await fetch(`${API_BASE}/datasources`);
+  const data = await handleApiResponse(res, 'Failed to fetch datasources.');
+  return data.datasources || [];
+}
+
+export async function createDataSource(name: string): Promise<DataSource> {
+  const res = await fetch(`${API_BASE}/datasources`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name })
+  });
+  const data = await handleApiResponse(res, 'Failed to create datasource.');
+  return data.datasource;
+}
+
+export async function switchDataSource(id: string): Promise<DataSource> {
+  const res = await fetch(`${API_BASE}/datasources/${encodeURIComponent(id)}/activate`, {
+    method: 'POST'
+  });
+  const data = await handleApiResponse(res, 'Failed to switch datasource.');
+  return data.datasource;
+}
+
+export async function renameDataSource(id: string, name: string): Promise<DataSource> {
+  const res = await fetch(`${API_BASE}/datasources/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name })
+  });
+  const data = await handleApiResponse(res, 'Failed to rename datasource.');
+  return data.datasource;
+}
+
+export async function deleteDataSource(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/datasources/${encodeURIComponent(id)}`, {
+    method: 'DELETE'
+  });
+  await handleApiResponse(res, 'Failed to delete datasource.');
+}
+
+export function getDataSourceExportUrl(id: string): string {
+  return `${API_BASE}/datasources/${encodeURIComponent(id)}/export`;
+}
+
+export async function importDataSource(file: File): Promise<DataSource> {
+  const formData = new FormData();
+  formData.append('bundle', file);
+
+  const res = await fetch(`${API_BASE}/datasources/import`, {
+    method: 'POST',
+    body: formData
+  });
+  const data = await handleApiResponse(res, 'Failed to import datasource archive.');
+  return data.datasource;
+}
+
 
