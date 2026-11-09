@@ -130,10 +130,11 @@ export const DataSourceModal: React.FC<DataSourceModalProps> = ({
   };
 
   return (
-    <div className="modal-overlay" style={{ zIndex: 1000 }} onClick={onClose}>
+    <div className="modal" style={{ zIndex: 1000 }}>
+      <div className="modal-backdrop" onClick={onClose} />
       <div
         className="modal-dialog"
-        style={{ maxWidth: '680px', width: '92%' }}
+        style={{ maxWidth: '680px', width: '92%', maxHeight: '90vh', overflowY: 'auto' }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-dialog-header">
