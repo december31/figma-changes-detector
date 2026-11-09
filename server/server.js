@@ -57,12 +57,20 @@ if (fs.existsSync(clientDist)) {
   });
 }
 
-function startServer(port = PORT, host = '127.0.0.1') {
+function startServer(port = PORT, host = process.env.HOST) {
   return new Promise((resolve, reject) => {
-    const server = app.listen(port, host, () => {
-      console.log(`Figma Changes Detector running at http://${host}:${port}`);
+    const onListening = () => {
+      const displayHost = host || 'localhost';
+      console.log(`Figma Changes Detector running at:`);
+      console.log(`  - Local:    http://${displayHost}:${port}`);
+      if (!host || host === '0.0.0.0') {
+        console.log(`  - Loopback: http://127.0.0.1:${port}`);
+      }
       resolve(server);
-    }).on('error', reject);
+    };
+
+    const server = (host ? app.listen(port, host, onListening) : app.listen(port, onListening))
+      .on('error', reject);
   });
 }
 
