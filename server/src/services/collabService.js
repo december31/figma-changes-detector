@@ -243,18 +243,13 @@ function buildCollabStorageXml({ run, items, attachmentsMap }) {
   xml += `<table class="confluenceTable" style="width: 100%; border: none;">`;
   xml += `<tbody>`;
   xml += `<tr>`;
-  xml += `<td style="border: none; padding: 6px 12px;"><strong>Run Session:</strong> #${run.id} (${escapeHtml(run.target_name)})</td>`;
-  xml += `<td style="border: none; padding: 6px 12px;"><strong>Execution Mode:</strong> ${escapeHtml(run.trigger_type.toUpperCase())}</td>`;
   xml += `<td style="border: none; padding: 6px 12px;"><strong>Captured At:</strong> ${escapeHtml(executionDate)}</td>`;
-  xml += `</tr>`;
-  xml += `<tr>`;
   xml += `<td style="border: none; padding: 6px 12px;"><strong>Total Components:</strong> ${run.total_items}</td>`;
   xml += `<td style="border: none; padding: 6px 12px;">`;
   xml += `<span style="display: inline-block; background-color: #FFEBE6; color: #DE350B; padding: 2px 8px; border-radius: 3px; font-weight: bold; margin-right: 6px;">🔴 ${run.changed_count} Changed</span> `;
   xml += `<span style="display: inline-block; background-color: #E3FCEF; color: #006644; padding: 2px 8px; border-radius: 3px; font-weight: bold; margin-right: 6px;">🟢 ${run.unchanged_count} Unchanged</span> `;
   xml += `<span style="display: inline-block; background-color: #DEEBFF; color: #0747A6; padding: 2px 8px; border-radius: 3px; font-weight: bold;">🔵 ${run.baseline_count} Baseline</span>`;
   xml += `</td>`;
-  xml += `<td style="border: none; padding: 6px 12px;"><strong>Figma Files (Decks):</strong> ${fileGroups.length}</td>`;
   xml += `</tr>`;
   xml += `</tbody>`;
   xml += `</table>`;
@@ -266,7 +261,6 @@ function buildCollabStorageXml({ run, items, attachmentsMap }) {
   // 2. Collab "Deck of Cards" Container
   // Each Figma file is placed inside a "card" within the master "deck"
   const deckMacroId = crypto.randomUUID();
-  xml += `<h3>📁 Figma File Snapshots &amp; Comparison Cards</h3>`;
   xml += `<ac:structured-macro ac:name="deck" ac:schema-version="1" ac:macro-id="${deckMacroId}">`;
   xml += `<ac:parameter ac:name="id">figma-file-deck-run-${run.id}</ac:parameter>`;
   xml += `<ac:rich-text-body>`;
@@ -328,9 +322,6 @@ function buildCollabStorageXml({ run, items, attachmentsMap }) {
       // Column 1: Component info
       xml += `<td class="confluenceTd" style="padding: 8px; border: 1px solid #DFE1E6; vertical-align: top;">`;
       xml += `<p><strong>${escapeHtml(item.component_name)}</strong></p>`;
-      if (item.folder_path) {
-        xml += `<p style="font-size: 11px; color: #6B778C; margin: 2px 0;">📁 ${escapeHtml(item.folder_path)}</p>`;
-      }
       xml += `<p style="font-size: 11px; margin: 4px 0 0;"><a href="${figmaNodeUrl}">Open in Figma ↗</a></p>`;
       xml += `</td>`;
 

@@ -1,0 +1,20 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <g transform="translate(13, 3.5)">
+    <!-- Top Left: Red-Orange -->
+    <path d="M0 9.5C0 4.25329 4.25329 0 9.5 0H19V19H9.5C4.25329 19 0 14.7467 0 9.5Z" fill="#F24E1E" />
+    <!-- Top Right: Coral -->
+    <path d="M19 0H28.5C33.7467 0 38 4.25329 38 9.5C38 14.7467 33.7467 19 28.5 19H19V0Z" fill="#FF7262" />
+    <!-- Mid Left: Purple -->
+    <path d="M0 28.5C0 23.2533 4.25329 19 9.5 19H19V38H9.5C4.25329 38 0 33.7467 0 28.5Z" fill="#A259FF" />
+    <!-- Mid Right: Blue/Cyan -->
+    <circle cx="28.5" cy="28.5" r="9.5" fill="#1ABCFE" />
+    <!-- Bottom Left: Green -->
+    <path d="M0 47.5C0 42.2533 4.25329 38 9.5 38H19V47.5C19 52.7467 14.7467 57 9.5 57C4.25329 57 0 52.7467 0 47.5Z" fill="#0ACF83" />
+    <!-- Bottom Right: Changes Circle Badge (Figma Amber/Yellow #FFC700) -->
+    <circle cx="28.5" cy="47.5" r="9.5" fill="#FFC700" />
+    <!-- Changes Icon: Sync/autorenew curved arrows in #18181B -->
+    <g transform="translate(28.5, 47.5) scale(0.56) translate(-12, -12)" fill="#18181B">
+      <path d="M12 6v3l4-4-4-4v3c-4.42 0-8 3.58-8 8 0 1.57.46 3.03 1.24 4.26L6.7 14.8c-.45-.83-.7-1.79-.7-2.8 0-3.31 2.69-6 6-6zm6.76 1.74L17.3 9.2c.44.84.7 1.79.7 2.8 0 3.31-2.69 6-6 6v-3l-4 4 4 4v-3c4.42 0 8-3.58 8-8 0-1.57-.46-3.03-1.24-4.26z" />
+    </g>
+  </g>
+</svg>

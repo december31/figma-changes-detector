@@ -83,12 +83,17 @@ async function createWindow() {
     }
 
     // 2. Create Window immediately so Windows taskbar & UI respond without delay
+    const appIcon = process.platform === 'win32'
+      ? path.join(__dirname, 'build', 'icon.ico')
+      : path.join(__dirname, 'build', 'icon.png');
+
     mainWindow = new BrowserWindow({
       width: 1360,
       height: 900,
       minWidth: 1024,
       minHeight: 700,
       title: 'Figma Changes Detector',
+      icon: fs.existsSync(appIcon) ? appIcon : undefined,
       show: true,
       webPreferences: {
         nodeIntegration: false,
