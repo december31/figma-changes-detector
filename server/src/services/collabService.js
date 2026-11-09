@@ -6,10 +6,7 @@ const pixelmatchModule = require('pixelmatch');
 const pixelmatch = pixelmatchModule.default || pixelmatchModule;
 const { getFetchRunDetails } = require('../repositories/componentRepository');
 
-const rootDir = path.resolve(__dirname, '..', '..');
-const assetsDir = path.join(rootDir, 'assets');
-const diffsDir = path.join(assetsDir, 'diffs');
-fs.mkdirSync(diffsDir, { recursive: true });
+const { diffsDir, resolveAssetPath } = require('../config/paths');
 
 function escapeHtml(str) {
   if (!str) return '';
@@ -158,10 +155,8 @@ function createDiffImageIfMissing(prevDiskPath, currDiskPath, compId, runId) {
 
 function resolveDiskPath(webPath) {
   if (!webPath) return null;
-  // e.g. /assets/snapshots/abc.png -> server/assets/snapshots/abc.png
-  const clean = webPath.replace(/^\//, '');
-  const resolved = path.join(rootDir, clean);
-  return fs.existsSync(resolved) ? resolved : null;
+  const resolved = resolveAssetPath(webPath);
+  return resolved && fs.existsSync(resolved) ? resolved : null;
 }
 
 /**

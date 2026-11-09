@@ -5,7 +5,7 @@ const { PNG } = require('pngjs');
 const pixelmatchModule = require('pixelmatch');
 const pixelmatch = pixelmatchModule.default || pixelmatchModule;
 
-const rootDir = path.resolve(__dirname, '..', '..');
+const { resolveAssetPath } = require('../config/paths');
 
 function padPngToSize(png, targetWidth, targetHeight) {
   if (png.width === targetWidth && png.height === targetHeight) {
@@ -68,8 +68,8 @@ function compareWithPreviousFetch(prevFetch, currentBuffer, format) {
   }
 
   // If both are PNG and previous file exists on disk, perform pixel-by-pixel comparison
-  const prevDiskPath = path.join(rootDir, prevFetch.image_path.replace(/^\//, ''));
-  if (format === 'png' && currentPng && fs.existsSync(prevDiskPath)) {
+  const prevDiskPath = resolveAssetPath(prevFetch.image_path);
+  if (format === 'png' && currentPng && prevDiskPath && fs.existsSync(prevDiskPath)) {
     try {
       const prevBuffer = fs.readFileSync(prevDiskPath);
       const prevPng = PNG.sync.read(prevBuffer);

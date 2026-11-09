@@ -3,7 +3,8 @@ const router = express.Router();
 const path = require('path');
 const fs = require('fs');
 const { executeComponentFetch } = require('../services/figmaService');
-const { getOrCreateThumbnail, rootDir } = require('../services/thumbnailService');
+const { getOrCreateThumbnail } = require('../services/thumbnailService');
+const { resolveAssetPath } = require('../config/paths');
 
 // GET /api/config - App runtime configuration (token presence check)
 router.get('/config', (req, res) => {
@@ -22,8 +23,8 @@ router.get('/thumbnail', async (req, res) => {
     const thumbPath = await getOrCreateThumbnail(src, targetSize);
     if (!thumbPath) return res.status(404).send('Image not found');
 
-    const diskPath = path.join(rootDir, thumbPath.replace(/^\//, ''));
-    if (fs.existsSync(diskPath)) {
+    const diskPath = resolveAssetPath(thumbPath);
+    if (diskPath && fs.existsSync(diskPath)) {
       res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
       return res.sendFile(diskPath);
     }

@@ -11,9 +11,7 @@ const {
 const { compareWithPreviousFetch } = require('./diffService');
 const { getOrCreateThumbnail } = require('./thumbnailService');
 
-const rootDir = path.resolve(__dirname, '..', '..');
-const snapshotsDir = path.join(rootDir, 'assets', 'snapshots');
-fs.mkdirSync(snapshotsDir, { recursive: true });
+const { snapshotsDir } = require('../config/paths');
 
 function normalizeNodeId(nodeId) {
   if (!nodeId) return '';

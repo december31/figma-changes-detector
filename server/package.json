@@ -14,5 +14,8 @@
     "pixelmatch": "^8.0.0",
     "pngjs": "^7.0.0",
     "sharp": "^0.35.5"
+  },
+  "optionalDependencies": {
+    "@img/sharp-win32-x64": "^0.35.5"
   }
 }

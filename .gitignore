@@ -15,6 +15,7 @@ server/assets/diffs/*
 !server/assets/diffs/.gitkeep
 client/dist/
 dist/
+dist-electron/
 *.tsbuildinfo
 client/vite.config.d.ts
 client/vite.config.js

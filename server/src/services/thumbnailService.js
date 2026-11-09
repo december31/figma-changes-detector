@@ -8,10 +8,7 @@ try {
   console.warn('Sharp not available, fallback to full image:', e.message);
 }
 
-const rootDir = path.resolve(__dirname, '..', '..');
-const assetsDir = path.join(rootDir, 'assets');
-const thumbnailsDir = path.join(assetsDir, 'thumbnails');
-fs.mkdirSync(thumbnailsDir, { recursive: true });
+const { snapshotsDir, thumbnailsDir, resolveAssetPath } = require('../config/paths');
 
 /**
  * Returns the relative web path (/assets/thumbnails/...) for a thumbnail,
@@ -19,12 +16,13 @@ fs.mkdirSync(thumbnailsDir, { recursive: true });
  */
 async function getOrCreateThumbnail(imageRelPath, targetSize = 96) {
   if (!imageRelPath) return null;
-  const cleanRel = imageRelPath.replace(/^\//, '');
-  const fullSourcePath = path.join(rootDir, cleanRel);
+  const fullSourcePath = resolveAssetPath(imageRelPath);
 
-  if (!fs.existsSync(fullSourcePath)) {
+  if (!fullSourcePath || !fs.existsSync(fullSourcePath)) {
     return null;
   }
+
+  const cleanRel = imageRelPath.replace(/^\//, '');
 
   // If sharp not available or SVG/PDF, return original path
   if (!sharp || cleanRel.endsWith('.svg') || cleanRel.endsWith('.pdf')) {
@@ -59,7 +57,6 @@ async function getOrCreateThumbnail(imageRelPath, targetSize = 96) {
  * Batch generate thumbnails for all snapshot files in /assets/snapshots
  */
 async function generateAllThumbnails(targetSize = 96) {
-  const snapshotsDir = path.join(assetsDir, 'snapshots');
   if (!fs.existsSync(snapshotsDir)) return 0;
 
   const files = fs.readdirSync(snapshotsDir);

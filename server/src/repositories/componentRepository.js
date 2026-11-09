@@ -2,8 +2,7 @@ const { DatabaseSync } = require('node:sqlite');
 const path = require('path');
 const fs = require('fs');
 
-const rootDir = path.resolve(__dirname, '..', '..');
-const dbPath = path.join(rootDir, 'data.db');
+const { dbPath, resolveAssetPath } = require('../config/paths');
 const db = new DatabaseSync(dbPath);
 
 // Enable WAL mode and foreign keys
@@ -496,9 +495,8 @@ function insertFetchRecord({
 function removeAssetFile(urlPath) {
   if (!urlPath) return;
   try {
-    const rel = urlPath.replace(/^\//, '');
-    const fullPath = path.join(rootDir, rel);
-    if (fs.existsSync(fullPath)) {
+    const fullPath = resolveAssetPath(urlPath);
+    if (fullPath && fs.existsSync(fullPath)) {
       fs.unlinkSync(fullPath);
     }
   } catch (e) {

@@ -2,7 +2,7 @@
   "name": "figma-changes-detector",
   "version": "1.0.0",
   "description": "Figma Changes Detector - Monorepo with React TSX client and Express server",
-  "main": "server/server.js",
+  "main": "electron-main.js",
   "scripts": {
     "setup": "npm --prefix server install && npm --prefix client install",
     "prestart": "npm run build",
@@ -11,7 +11,10 @@
     "dev:server": "npm --prefix server run dev",
     "dev:client": "npm --prefix client run dev",
     "build:client": "npm --prefix client run build",
-    "build": "npm run build:client"
+    "build": "npm run build:client",
+    "electron:dev": "npm run build:client && electron .",
+    "prebuild:win": "npm run build:client && node scripts/prepare-win-sharp.js",
+    "build:win": "electron-builder --win --x64"
   },
   "workspaces": [
     "server",
@@ -19,5 +22,43 @@
   ],
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^45.2.3",
+    "electron-builder": "^26.18.0"
+  },
+  "optionalDependencies": {
+    "@img/sharp-win32-x64": "^0.35.5"
+  },
+  "build": {
+    "appId": "com.anthony.figmachangesdetector",
+    "productName": "Figma Changes Detector",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "asar": true,
+    "asarUnpack": [
+      "**/node_modules/sharp/**/*",
+      "**/node_modules/@img/**/*"
+    ],
+    "files": [
+      "electron-main.js",
+      "server/**/*",
+      "client/dist/**/*",
+      "!server/assets/**/*",
+      "!server/data.db*"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
 }

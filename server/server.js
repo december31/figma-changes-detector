@@ -6,6 +6,7 @@ const fs = require('fs');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
+const { assetsDir } = require('./src/config/paths');
 const componentRoutes = require('./src/routes/componentRoutes');
 const figmaRoutes = require('./src/routes/figmaRoutes');
 const collabRoutes = require('./src/routes/collabRoutes');
@@ -18,13 +19,6 @@ if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === undefined) {
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-
-// Ensure asset directories exist
-const assetsDir = path.join(__dirname, 'assets');
-const snapshotsDir = path.join(assetsDir, 'snapshots');
-const diffsDir = path.join(assetsDir, 'diffs');
-fs.mkdirSync(snapshotsDir, { recursive: true });
-fs.mkdirSync(diffsDir, { recursive: true });
 
 app.use(cors());
 app.use(express.json());
@@ -59,13 +53,21 @@ if (fs.existsSync(clientDist)) {
   });
 }
 
-if (require.main === module) {
-  app.listen(PORT, () => {
-    console.log(`Figma Changes Detector running at http://localhost:${PORT}`);
+function startServer(port = PORT) {
+  return new Promise((resolve, reject) => {
+    const server = app.listen(port, () => {
+      console.log(`Figma Changes Detector running at http://localhost:${port}`);
+      resolve(server);
+    }).on('error', reject);
   });
+}
+
+if (require.main === module) {
+  startServer();
 }
 
 module.exports = {
   app,
+  startServer,
   compareWithPreviousFetch
 };
