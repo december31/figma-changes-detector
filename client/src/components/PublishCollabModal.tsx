@@ -17,10 +17,8 @@ export const PublishCollabModal: React.FC<PublishCollabModalProps> = ({
   runDetails
 }) => {
   const [parentPageInput, setParentPageInput] = useState(() => localStorage.getItem('collab_parent_page_id') || '');
-  const [pageTitle, setPageTitle] = useState('');
-  const [customCollabUrl, setCustomCollabUrl] = useState('');
+  const [customCollabUrl, setCustomCollabUrl] = useState(() => localStorage.getItem('collab_url') || '');
   const [customToken, setCustomToken] = useState(() => localStorage.getItem('collab_token') || '');
-  const [showSettings, setShowSettings] = useState(false);
   const [attachWorkspace, setAttachWorkspace] = useState(true);
 
   // Status & Verification state
@@ -51,11 +49,6 @@ export const PublishCollabModal: React.FC<PublishCollabModalProps> = ({
         setHasServerToken(cfg.hasToken);
       })
       .catch((err) => console.warn('Could not fetch Collab config:', err));
-
-    if (run) {
-      const dateStr = new Date(run.started_at || Date.now()).toLocaleDateString();
-      setPageTitle(`Figma Visual Regression Report - Run #${run.id} (${dateStr})`);
-    }
   }, [isOpen, run]);
 
   // Clean parent page ID helper
@@ -127,15 +120,21 @@ export const PublishCollabModal: React.FC<PublishCollabModalProps> = ({
 
     // Save preferences
     localStorage.setItem('collab_parent_page_id', cleanParentId);
+    if (customCollabUrl.trim()) {
+      localStorage.setItem('collab_url', customCollabUrl.trim());
+    }
     if (customToken.trim()) {
       localStorage.setItem('collab_token', customToken.trim());
     }
 
     try {
+      const dateStr = new Date(run.started_at || Date.now()).toLocaleDateString();
+      const reportTitle = `Figma Visual Regression Report (${dateStr})`;
+
       const res = await api.publishCollabReport({
         runId: run.id,
         parentPageId: cleanParentId,
-        pageTitle: pageTitle.trim() || undefined,
+        pageTitle: reportTitle,
         collabUrl: customCollabUrl.trim() || undefined,
         token: customToken.trim() || undefined,
         attachWorkspace
@@ -163,15 +162,10 @@ export const PublishCollabModal: React.FC<PublishCollabModalProps> = ({
           overflowY: 'auto'
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
-          <div>
-            <h2 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0, color: '#fff', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span>🚀</span> Publish Report to Collab
-            </h2>
-            <p style={{ margin: '0.2rem 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              Automatically creates a new Collab page using the Deck of Cards widget (each Figma file rendered as an interactive Card).
-            </p>
-          </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+          <h2 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0, color: '#fff' }}>
+            Publish Report to Collab
+          </h2>
           <button
             type="button"
             className="btn-close"
@@ -182,34 +176,29 @@ export const PublishCollabModal: React.FC<PublishCollabModalProps> = ({
           </button>
         </div>
 
-        {/* Run Details Summary */}
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '0.75rem 1rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-            <span style={{ fontWeight: 600, fontSize: '0.88rem', color: '#fff' }}>
-              Run #{run.id} — {run.target_name}
-            </span>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              {new Date(run.started_at).toLocaleString()}
-            </span>
-          </div>
-
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', fontSize: '0.75rem' }}>
-            <span style={{ background: 'rgba(255,255,255,0.06)', padding: '2px 8px', borderRadius: '4px', color: 'var(--text-main)' }}>
-              📦 {run.total_items} Components
-            </span>
-            <span style={{ background: 'rgba(255, 114, 98, 0.15)', color: 'var(--accent-red)', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
-              🔴 {run.changed_count} Changed
-            </span>
-            <span style={{ background: 'rgba(10, 207, 131, 0.15)', color: 'var(--accent-green)', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
-              🟢 {run.unchanged_count} Unchanged
-            </span>
-            <span style={{ background: 'rgba(26, 188, 254, 0.15)', color: 'var(--accent-blue)', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
-              🔵 {run.baseline_count} Baseline
-            </span>
-            <span style={{ background: 'rgba(162, 89, 255, 0.15)', color: 'var(--accent-purple)', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
-              🃏 {fileDecks.length} Figma Cards in Deck
-            </span>
-          </div>
+        {/* Status Line */}
+        <div
+          style={{
+            fontSize: '0.85rem',
+            color: 'var(--text-muted)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.6rem',
+            padding: '0.2rem 0',
+            flexWrap: 'wrap'
+          }}
+        >
+          <span>
+            <strong style={{ color: 'var(--text-main)' }}>{run.total_items}</strong> {run.total_items === 1 ? 'component' : 'components'}
+          </span>
+          <span>•</span>
+          <span style={{ color: run.changed_count > 0 ? 'var(--accent-red)' : 'inherit', fontWeight: run.changed_count > 0 ? 600 : 'normal' }}>
+            {run.changed_count} changed
+          </span>
+          <span>•</span>
+          <span style={{ color: 'var(--accent-green)' }}>
+            {run.unchanged_count} unchanged
+          </span>
         </div>
 
         {/* Success View */}
@@ -284,7 +273,58 @@ export const PublishCollabModal: React.FC<PublishCollabModalProps> = ({
           </div>
         ) : (
           <form onSubmit={handlePublish} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {/* Field: Parent Page ID / URL */}
+            {/* Field 1: Collab Base URL */}
+            <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+              <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                Collab Base URL
+              </label>
+              <input
+                type="text"
+                placeholder={defaultCollabUrl}
+                value={customCollabUrl}
+                onChange={(e) => setCustomCollabUrl(e.target.value)}
+                disabled={isPublishing}
+                style={{
+                  width: '100%',
+                  background: 'var(--bg-input)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: 'var(--radius-sm)',
+                  padding: '0.5rem 0.75rem',
+                  color: '#fff',
+                  fontSize: '0.85rem'
+                }}
+              />
+            </div>
+
+            {/* Field 2: Personal Access Token (PAT) */}
+            <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+              <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                Personal Access Token (PAT){' '}
+                {hasServerToken ? (
+                  <span style={{ fontSize: '0.78rem', fontWeight: 400, color: 'var(--text-muted)' }}>(Configured in .env)</span>
+                ) : (
+                  <span style={{ color: 'var(--accent-red)' }}>*</span>
+                )}
+              </label>
+              <input
+                type="password"
+                placeholder={hasServerToken ? 'Using server configured token (leave empty or override)' : 'Enter Collab PAT'}
+                value={customToken}
+                onChange={(e) => setCustomToken(e.target.value)}
+                disabled={isPublishing}
+                style={{
+                  width: '100%',
+                  background: 'var(--bg-input)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: 'var(--radius-sm)',
+                  padding: '0.5rem 0.75rem',
+                  color: '#fff',
+                  fontSize: '0.85rem'
+                }}
+              />
+            </div>
+
+            {/* Field 3: Parent Page ID / URL */}
             <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
               <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)' }}>
                 Parent Page ID or Collab URL <span style={{ color: 'var(--accent-red)' }}>*</span>
@@ -343,28 +383,6 @@ export const PublishCollabModal: React.FC<PublishCollabModalProps> = ({
               )}
             </div>
 
-            {/* Field: Page Title */}
-            <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-              <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)' }}>
-                Report Page Title <span style={{ color: 'var(--accent-red)' }}>*</span>
-              </label>
-              <input
-                type="text"
-                value={pageTitle}
-                onChange={(e) => setPageTitle(e.target.value)}
-                disabled={isPublishing}
-                style={{
-                  background: 'var(--bg-input)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: 'var(--radius-sm)',
-                  padding: '0.5rem 0.75rem',
-                  color: '#fff',
-                  fontSize: '0.85rem'
-                }}
-                required
-              />
-            </div>
-
             {/* Field: Attach Workspace Archive */}
             <div
               style={{
@@ -405,7 +423,7 @@ export const PublishCollabModal: React.FC<PublishCollabModalProps> = ({
             {/* Figma Decks Preview List */}
             {fileDecks.length > 0 && (
               <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>Generated Cards per Figma File in Deck:</span>
+                <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>Generated Cards</span>
                 <ul style={{ margin: '0.35rem 0 0 1.2rem', padding: 0 }}>
                   {fileDecks.map((d) => (
                     <li key={d.key}>
@@ -415,72 +433,6 @@ export const PublishCollabModal: React.FC<PublishCollabModalProps> = ({
                 </ul>
               </div>
             )}
-
-            {/* Collapsible Collab API & Token Settings */}
-            <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '0.5rem' }}>
-              <button
-                type="button"
-                onClick={() => setShowSettings(!showSettings)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--accent-blue)',
-                  fontSize: '0.78rem',
-                  cursor: 'pointer',
-                  padding: 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.3rem'
-                }}
-              >
-                <span>⚙️ {showSettings ? 'Hide Collab Connection Settings' : 'Advanced Collab Connection Settings'}</span>
-              </button>
-
-              {showSettings && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.75rem', background: 'var(--bg-primary)', padding: '0.75rem', borderRadius: 'var(--radius-sm)' }}>
-                  <div>
-                    <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.2rem' }}>
-                      Collab Base URL
-                    </label>
-                    <input
-                      type="text"
-                      placeholder={defaultCollabUrl}
-                      value={customCollabUrl}
-                      onChange={(e) => setCustomCollabUrl(e.target.value)}
-                      style={{
-                        width: '100%',
-                        background: 'var(--bg-input)',
-                        border: '1px solid var(--border-color)',
-                        borderRadius: 'var(--radius-sm)',
-                        padding: '0.35rem 0.6rem',
-                        color: '#fff',
-                        fontSize: '0.8rem'
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.2rem' }}>
-                      Personal Access Token (PAT) {hasServerToken ? '(Configured in .env)' : '(Required)'}
-                    </label>
-                    <input
-                      type="password"
-                      placeholder={hasServerToken ? 'Using server configured token (leave empty or override)' : 'Enter Collab PAT'}
-                      value={customToken}
-                      onChange={(e) => setCustomToken(e.target.value)}
-                      style={{
-                        width: '100%',
-                        background: 'var(--bg-input)',
-                        border: '1px solid var(--border-color)',
-                        borderRadius: 'var(--radius-sm)',
-                        padding: '0.35rem 0.6rem',
-                        color: '#fff',
-                        fontSize: '0.8rem'
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
 
             {/* Error Message */}
             {publishError && (
@@ -518,9 +470,7 @@ export const PublishCollabModal: React.FC<PublishCollabModalProps> = ({
                     <span>Publishing Decks, Snapshots &amp; Workspace...</span>
                   </>
                 ) : (
-                  <>
-                    <span>🚀 Publish to Collab</span>
-                  </>
+                  <span>Publish to Collab</span>
                 )}
               </button>
             </div>

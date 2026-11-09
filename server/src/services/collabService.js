@@ -463,7 +463,7 @@ async function publishReportToCollab({
   const activeToken = getCollabToken(token);
 
   // 2. Prepare title
-  let finalTitle = (pageTitle && pageTitle.trim()) || `Figma Visual Regression Report - Run #${run.id} (${new Date().toLocaleDateString()})`;
+  let finalTitle = (pageTitle && pageTitle.trim()) || `Figma Visual Regression Report (${new Date().toLocaleDateString()})`;
 
   // 3. Create Child Page in Confluence
   const createPagePayload = {
@@ -473,7 +473,7 @@ async function publishReportToCollab({
     ancestors: [{ id: String(parent.pageId) }],
     body: {
       storage: {
-        value: `<p>Initializing Figma Visual Regression Report for Run #${run.id}...</p>`,
+        value: `<p>Initializing Figma Visual Regression Report...</p>`,
         representation: 'storage'
       }
     }
