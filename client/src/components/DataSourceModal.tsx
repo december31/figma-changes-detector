@@ -148,13 +148,13 @@ export const DataSourceModal: React.FC<DataSourceModalProps> = ({
         </div>
 
         {errorMsg && (
-          <div style={{ margin: '0.75rem 1.25rem 0', padding: '0.75rem 1rem', background: '#ffebee', color: '#c62828', borderRadius: '6px', fontSize: '0.875rem' }}>
+          <div style={{ margin: '0.75rem 1.25rem 0', padding: '0.75rem 1rem', background: 'rgba(255, 114, 98, 0.15)', color: 'var(--accent-red)', border: '1px solid rgba(255, 114, 98, 0.3)', borderRadius: '6px', fontSize: '0.875rem' }}>
             ⚠️ {errorMsg}
           </div>
         )}
 
         {infoMsg && (
-          <div style={{ margin: '0.75rem 1.25rem 0', padding: '0.75rem 1rem', background: '#e8f5e9', color: '#2e7d32', borderRadius: '6px', fontSize: '0.875rem' }}>
+          <div style={{ margin: '0.75rem 1.25rem 0', padding: '0.75rem 1rem', background: 'rgba(10, 207, 131, 0.15)', color: 'var(--accent-green)', border: '1px solid rgba(10, 207, 131, 0.3)', borderRadius: '6px', fontSize: '0.875rem' }}>
             ✓ {infoMsg}
           </div>
         )}
@@ -162,10 +162,10 @@ export const DataSourceModal: React.FC<DataSourceModalProps> = ({
         <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           {/* Workspaces List */}
           <div>
-            <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary, #666)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
+            <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
               Available Workspaces ({datasources.length})
             </div>
-            <div style={{ border: '1px solid var(--border-color, #e0e0e0)', borderRadius: '8px', overflow: 'hidden' }}>
+            <div style={{ border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden' }}>
               {datasources.map((ds) => (
                 <div
                   key={ds.id}
@@ -174,7 +174,7 @@ export const DataSourceModal: React.FC<DataSourceModalProps> = ({
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     padding: '0.75rem 1rem',
-                    borderBottom: '1px solid var(--border-color, #f0f0f0)',
+                    borderBottom: '1px solid var(--border-color)',
                     background: ds.isActive ? 'rgba(26, 188, 254, 0.08)' : 'transparent',
                     gap: '0.75rem'
                   }}
@@ -190,18 +190,18 @@ export const DataSourceModal: React.FC<DataSourceModalProps> = ({
                             onChange={(e) => setEditingName(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && saveRename(ds.id)}
                             autoFocus
-                            style={{ padding: '0.2rem 0.5rem', fontSize: '0.9rem', borderRadius: '4px', border: '1px solid #1abcfe', width: '100%' }}
+                            style={{ padding: '0.2rem 0.5rem', fontSize: '0.9rem', borderRadius: '4px', border: '1px solid var(--accent-blue)', background: 'var(--bg-input)', color: 'var(--text-main)', width: '100%' }}
                           />
                           <button type="button" className="btn-pill" onClick={() => saveRename(ds.id)} style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}>Save</button>
                           <button type="button" className="btn-pill" onClick={() => setEditingId(null)} style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}>Cancel</button>
                         </div>
                       ) : (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <span style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary, #222)' }}>
+                          <span style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-main, #fff)' }}>
                             {ds.name}
                           </span>
                           {ds.isActive && (
-                            <span style={{ background: '#0acf83', color: '#fff', fontSize: '0.7rem', fontWeight: 700, padding: '0.15rem 0.45rem', borderRadius: '12px' }}>
+                            <span style={{ background: 'var(--accent-green, #0acf83)', color: '#fff', fontSize: '0.7rem', fontWeight: 700, padding: '0.15rem 0.45rem', borderRadius: '12px' }}>
                               ACTIVE
                             </span>
                           )}
@@ -209,13 +209,13 @@ export const DataSourceModal: React.FC<DataSourceModalProps> = ({
                             type="button"
                             onClick={() => startRename(ds)}
                             title="Rename"
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888', padding: '0 0.2rem', fontSize: '0.8rem' }}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '0 0.2rem', fontSize: '0.8rem' }}
                           >
                             ✎
                           </button>
                         </div>
                       )}
-                      <div style={{ fontSize: '0.75rem', color: '#888', marginTop: '0.2rem' }}>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
                         {formatBytes(ds.sizeBytes)} • Created {new Date(ds.createdAt).toLocaleDateString()}
                       </div>
                     </div>
@@ -266,7 +266,7 @@ export const DataSourceModal: React.FC<DataSourceModalProps> = ({
               value={newDsName}
               onChange={(e) => setNewDsName(e.target.value)}
               disabled={isCreating}
-              style={{ flex: 1, padding: '0.5rem 0.75rem', borderRadius: '6px', border: '1px solid var(--border-color, #ccc)' }}
+              style={{ flex: 1, padding: '0.5rem 0.75rem', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--bg-input)', color: 'var(--text-main)' }}
             />
             <button
               type="submit"
@@ -279,12 +279,12 @@ export const DataSourceModal: React.FC<DataSourceModalProps> = ({
           </form>
 
           {/* Import Workspace Bundle */}
-          <div style={{ padding: '1rem', border: '2px dashed var(--border-color, #ccc)', borderRadius: '8px', textAlign: 'center', background: 'var(--bg-subtle, #fafafa)' }}>
+          <div style={{ padding: '1rem', border: '2px dashed var(--border-color)', borderRadius: '8px', textAlign: 'center', background: 'var(--bg-card)' }}>
             <div style={{ fontSize: '1.5rem', marginBottom: '0.35rem' }}>📦</div>
-            <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.25rem' }}>
+            <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.25rem', color: 'var(--text-main)' }}>
               Import Workspace (.zip)
             </div>
-            <p style={{ fontSize: '0.78rem', color: '#666', margin: '0 0 0.75rem' }}>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: '0 0 0.75rem' }}>
               Upload an exported <code>.zip</code> bundle containing <code>data.db</code> and snapshot assets. It will become a new workspace.
             </p>
             <input
